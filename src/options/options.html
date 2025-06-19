@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedIn Job Assistant - Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="header-content">
+          <div class="logo">
+            <span class="logo-icon">🤖</span>
+            <h1>LinkedIn Job Assistant</h1>
+          </div>
+          <p class="subtitle">Customize your profile and preferences</p>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="tabs">
+          <button class="tab-button active" data-tab="profile">
+            👤 Profile
+          </button>
+          <button class="tab-button" data-tab="preferences">
+            ⚙️ Preferences
+          </button>
+          <button class="tab-button" data-tab="email">✉️ Email</button>
+          <button class="tab-button" data-tab="about">ℹ️ About</button>
+        </div>
+
+        <!-- Profile Tab -->
+        <div id="profile" class="tab-content active">
+          <div class="section">
+            <h2>Personal Information</h2>
+            <div class="form-group">
+              <label for="name">Full Name *</label>
+              <input
+                type="text"
+                id="name"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input
+                  type="email"
+                  id="email"
+                  placeholder="your.email@example.com"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" placeholder="+91-XXXXXXXXXX" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="experience">Years of Experience *</label>
+              <select id="experience" required>
+                <option value="">Select experience</option>
+                <option value="0">Fresher</option>
+                <option value="1">1 year</option>
+                <option value="2">2 years</option>
+                <option value="3">3 years</option>
+                <option value="4">4 years</option>
+                <option value="5">5+ years</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="domain">Domain/Specialization *</label>
+              <input
+                type="text"
+                id="domain"
+                placeholder="e.g., Python Backend Development + AI/ML"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Technical Skills</h2>
+            <div class="form-group">
+              <label for="skills">Skills (comma-separated) *</label>
+              <textarea
+                id="skills"
+                placeholder="Python, Flask, FastAPI, TensorFlow, Machine Learning, etc."
+                required
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Resume</h2>
+            <div class="form-group">
+              <label for="resume">Upload Resume</label>
+              <div class="file-upload-area" id="resumeUploadArea">
+                <input
+                  type="file"
+                  id="resume"
+                  accept=".pdf,.doc,.docx"
+                  hidden
+                />
+                <div class="upload-content">
+                  <span class="upload-icon">📄</span>
+                  <p>Click to upload or drag & drop your resume</p>
+                  <p class="upload-hint">PDF, DOC, DOCX (Max 5MB)</p>
+                </div>
+              </div>
+              <div id="resumeStatus" class="upload-status"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preferences Tab -->
+        <div id="preferences" class="tab-content">
+          <div class="section">
+            <h2>Job Preferences</h2>
+
+            <div class="form-group">
+              <label>Preferred Roles</label>
+              <div class="checkbox-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Backend Developer" /> Backend
+                  Developer
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="AI/ML Engineer" /> AI/ML
+                  Engineer
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Full Stack Developer" /> Full
+                  Stack Developer
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Data Scientist" /> Data
+                  Scientist
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Python Developer" /> Python
+                  Developer
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Software Engineer" /> Software
+                  Engineer
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Work Type Preferences</label>
+              <div class="checkbox-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Remote" /> Remote
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Hybrid" /> Hybrid
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="On-site" /> On-site
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="preferredLocations"
+                >Preferred Locations (if on-site/hybrid)</label
+              >
+              <input
+                type="text"
+                id="preferredLocations"
+                placeholder="e.g., Ahmedabad, Pune, Bengaluru"
+              />
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Exclusions</h2>
+
+            <div class="form-group">
+              <label>Exclude These Roles</label>
+              <div class="checkbox-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Frontend" /> Frontend Only
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Sales" /> Sales
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="DevOps" /> DevOps Only
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Mobile" /> Mobile Only
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Marketing" /> Marketing
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Company Type Preferences</label>
+              <div class="checkbox-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Startups" /> Tech Startups
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="AI Companies" /> AI-focused
+                  Companies
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="Product Companies" />
+                  Product-based Companies
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" value="MNCs" /> MNCs
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Email Tab -->
+        <div id="email" class="tab-content">
+          <div class="section">
+            <h2>Email Configuration</h2>
+            <p class="section-description">
+              Configure email settings for automatic application sending
+            </p>
+
+            <div class="form-group">
+              <label for="emailAddress">Your Email Address</label>
+              <input
+                type="email"
+                id="emailAddress"
+                placeholder="your.email@gmail.com"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="emailPassword">App Password</label>
+              <input
+                type="password"
+                id="emailPassword"
+                placeholder="Your app-specific password"
+              />
+              <p class="field-hint">
+                For Gmail: Enable 2FA and generate an App Password.
+                <a
+                  href="https://support.google.com/accounts/answer/185833"
+                  target="_blank"
+                  >Learn how →</a
+                >
+              </p>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="smtpServer">SMTP Server</label>
+                <input
+                  type="text"
+                  id="smtpServer"
+                  value="smtp.gmail.com"
+                  placeholder="smtp.gmail.com"
+                />
+              </div>
+              <div class="form-group">
+                <label for="smtpPort">SMTP Port</label>
+                <input
+                  type="number"
+                  id="smtpPort"
+                  value="587"
+                  placeholder="587"
+                />
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button type="button" id="testEmailBtn" class="btn btn-outline">
+                Test Email Configuration
+              </button>
+              <button type="button" id="saveEmailBtn" class="btn btn-primary">
+                Save Email Settings
+              </button>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Email Templates</h2>
+            <div class="form-group">
+              <label for="emailSignature">Email Signature</label>
+              <textarea
+                id="emailSignature"
+                placeholder="Best regards,&#10;Your Name&#10;Your Title&#10;Contact Information"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- About Tab -->
+        <div id="about" class="tab-content">
+          <div class="section">
+            <h2>About LinkedIn Job Assistant</h2>
+            <div class="about-content">
+              <div class="feature-list">
+                <div class="feature-item">
+                  <span class="feature-icon">🤖</span>
+                  <div>
+                    <h3>AI-Powered Analysis</h3>
+                    <p>
+                      Intelligent job post analysis using advanced AI to match
+                      your profile
+                    </p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">✉️</span>
+                  <div>
+                    <h3>Automated Email Generation</h3>
+                    <p>
+                      Personalized application emails generated automatically
+                    </p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">⚡</span>
+                  <div>
+                    <h3>One-Click Applications</h3>
+                    <p>Apply to relevant jobs with a single click</p>
+                  </div>
+                </div>
+                <div class="feature-item">
+                  <span class="feature-icon">📊</span>
+                  <div>
+                    <h3>Application Tracking</h3>
+                    <p>Track your application success rate and statistics</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="info-section">
+                <h3>Version Information</h3>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Developer:</strong> Heet Dedakiya</p>
+                <p>
+                  <strong>Last Updated:</strong> <span id="lastUpdated"></span>
+                </p>
+              </div>
+
+              <div class="info-section">
+                <h3>Privacy & Security</h3>
+                <p>• Your data is stored locally and never shared</p>
+                <p>• Email credentials are encrypted and secure</p>
+                <p>• No tracking or analytics data collected</p>
+                <p>• Open source and transparent</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="footer-actions">
+          <button type="button" id="resetBtn" class="btn btn-outline">
+            Reset to Defaults
+          </button>
+          <button type="button" id="exportBtn" class="btn btn-outline">
+            Export Settings
+          </button>
+          <button type="button" id="saveBtn" class="btn btn-primary">
+            Save All Settings
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">Saving settings...</p>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification" class="notification" style="display: none">
+      <span id="notificationText"></span>
+      <button id="notificationClose">×</button>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>

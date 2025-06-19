@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedIn Job Assistant</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup-container">
+      <header class="popup-header">
+        <div class="logo">
+          <span class="logo-icon">🤖</span>
+          <h1>Job Assistant</h1>
+        </div>
+        <button id="settingsBtn" class="settings-btn" title="Settings">
+          ⚙️
+        </button>
+      </header>
+
+      <main class="popup-main">
+        <div id="statusSection" class="status-section">
+          <div class="status-card">
+            <div class="status-icon" id="statusIcon">📄</div>
+            <div class="status-text">
+              <h3 id="statusTitle">Ready to Analyze</h3>
+              <p id="statusDescription">
+                Click "Analyze" to check if this job matches your profile
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions-section">
+          <button id="analyzeBtn" class="btn btn-primary">
+            <span class="btn-icon">🔍</span>
+            Analyze Job Post
+          </button>
+
+          <button id="quickApplyBtn" class="btn btn-secondary" disabled>
+            <span class="btn-icon">✉️</span>
+            Quick Apply
+          </button>
+        </div>
+
+        <div id="resultsSection" class="results-section" style="display: none">
+          <div class="result-card">
+            <div class="result-header">
+              <span id="relevanceStatus" class="status-badge"></span>
+              <span id="confidenceScore" class="confidence-score"></span>
+            </div>
+
+            <div class="result-content">
+              <p id="analysisReason" class="analysis-reason"></p>
+
+              <div id="contactInfo" class="contact-info" style="display: none">
+                <h4>Contact Information</h4>
+                <p id="contactEmail"></p>
+              </div>
+
+              <div
+                id="emailPreview"
+                class="email-preview"
+                style="display: none"
+              >
+                <h4>Generated Email</h4>
+                <div class="email-content">
+                  <div class="email-subject">
+                    <strong>Subject:</strong> <span id="emailSubject"></span>
+                  </div>
+                  <div class="email-body" id="emailBody"></div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="actionButtons"
+              class="action-buttons"
+              style="display: none"
+            >
+              <button id="copyEmailBtn" class="btn btn-outline">
+                Copy Email
+              </button>
+              <button id="openEmailBtn" class="btn btn-outline">
+                Open Email Client
+              </button>
+              <button id="sendEmailBtn" class="btn btn-success">
+                Send Automatically
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-section">
+          <div class="stat-item">
+            <span class="stat-number" id="analyzedCount">0</span>
+            <span class="stat-label">Analyzed</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="relevantCount">0</span>
+            <span class="stat-label">Relevant</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="appliedCount">0</span>
+            <span class="stat-label">Applied</span>
+          </div>
+        </div>
+      </main>
+
+      <footer class="popup-footer">
+        <button id="openOptionsBtn" class="footer-btn">
+          <span>👤</span> Profile Settings
+        </button>
+        <button id="helpBtn" class="footer-btn"><span>❓</span> Help</button>
+      </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">Analyzing job post...</p>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification" class="notification" style="display: none">
+      <span id="notificationText"></span>
+      <button id="notificationClose">×</button>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

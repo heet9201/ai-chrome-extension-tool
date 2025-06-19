@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Job Assistant",
+  "version": "1.0.0",
+  "description": "Automate LinkedIn job applications with AI-powered analysis and email generation",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "host"
+  ],
+  
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "http://localhost:*",
+    "https://your-backend-domain.com/*"
+  ],
+  
+  "background": {
+    "service_worker": "src/background/background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": [
+        "src/content/linkedin-parser.js",
+        "src/content/content.js"
+      ],
+      "css": ["src/content/content.css"]
+    }
+  ],
+  
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "LinkedIn Job Assistant",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  
+  "options_page": "src/options/options.html",
+  
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["src/utils/*"],
+      "matches": ["https://www.linkedin.com/*"]
+    }
+  ]
+}
