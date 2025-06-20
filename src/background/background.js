@@ -2,59 +2,110 @@
 class BackgroundService {
     constructor() {
         this.API_BASE_URL = 'http://localhost:5000/api';
-        this.init();
+        try {
+            this.init();
+            console.log('LinkedIn Job Assistant background service initialized');
+        } catch (error) {
+            console.error('Error initializing background service:', error);
+        }
     }
 
     init() {
-        this.setupMessageHandlers();
-        this.setupContextMenus();
+        try {
+            this.setupMessageHandlers();
+            this.setupContextMenus();
+        } catch (error) {
+            console.error('Error in background service initialization:', error);
+        }
     }
 
     // Setup message handlers
     setupMessageHandlers() {
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            switch (message.type) {
-                case 'ANALYZE_JOB':
-                    this.analyzeJob(message.data)
-                        .then(response => sendResponse(response))
-                        .catch(error => sendResponse({ success: false, error: error.message }));
-                    return true; // Keep message channel open for async response
+            try {
+                if (!message || !message.type) {
+                    sendResponse({ success: false, error: 'Invalid message format' });
+                    return false;
+                }
 
-                case 'SEND_EMAIL':
-                    this.sendEmail(message.data)
-                        .then(response => sendResponse(response))
-                        .catch(error => sendResponse({ success: false, error: error.message }));
-                    return true;
+                switch (message.type) {
+                    case 'ANALYZE_JOB':
+                        this.analyzeJob(message.data)
+                            .then(response => sendResponse(response))
+                            .catch(error => {
+                                console.error('Error in ANALYZE_JOB:', error);
+                                sendResponse({ success: false, error: error.message });
+                            });
+                        return true; // Keep message channel open for async response
 
-                case 'GET_USER_PROFILE':
-                    this.getUserProfile()
-                        .then(response => sendResponse(response))
-                        .catch(error => sendResponse({ success: false, error: error.message }));
-                    return true;
+                    case 'SEND_EMAIL':
+                        this.sendEmail(message.data)
+                            .then(response => sendResponse(response))
+                            .catch(error => {
+                                console.error('Error in SEND_EMAIL:', error);
+                                sendResponse({ success: false, error: error.message });
+                            });
+                        return true;
 
-                case 'UPDATE_USER_PROFILE':
-                    this.updateUserProfile(message.data)
-                        .then(response => sendResponse(response))
-                        .catch(error => sendResponse({ success: false, error: error.message }));
-                    return true;
+                    case 'GET_USER_PROFILE':
+                        this.getUserProfile()
+                            .then(response => sendResponse(response))
+                            .catch(error => {
+                                console.error('Error in GET_USER_PROFILE:', error);
+                                sendResponse({ success: false, error: error.message });
+                            });
+                        return true;
+
+                    case 'UPDATE_USER_PROFILE':
+                        this.updateUserProfile(message.data)
+                            .then(response => sendResponse(response))
+                            .catch(error => {
+                                console.error('Error in UPDATE_USER_PROFILE:', error);
+                                sendResponse({ success: false, error: error.message });
+                            });
+                        return true;
+
+                    default:
+                        sendResponse({ success: false, error: 'Unknown message type: ' + message.type });
+                        return false;
+                }
+            } catch (error) {
+                console.error('Error in message handler:', error);
+                sendResponse({ success: false, error: 'Message handler error: ' + error.message });
+                return false;
             }
         });
     }
 
     // Setup context menus
     setupContextMenus() {
+        // Check if contextMenus API is available
+        if (!chrome.contextMenus) {
+            console.warn('contextMenus API not available. Please add "contextMenus" permission to manifest.json');
+            return;
+        }
+
         chrome.runtime.onInstalled.addListener(() => {
-            chrome.contextMenus.create({
-                id: 'analyze-job-post',
-                title: 'Analyze Job Post with AI',
-                contexts: ['page'],
-                documentUrlPatterns: ['https://www.linkedin.com/*']
-            });
+            try {
+                chrome.contextMenus.create({
+                    id: 'analyze-job-post',
+                    title: 'Analyze Job Post with AI',
+                    contexts: ['page'],
+                    documentUrlPatterns: ['https://www.linkedin.com/*']
+                });
+                console.log('Context menu created successfully');
+            } catch (error) {
+                console.error('Error creating context menu:', error);
+            }
         });
 
         chrome.contextMenus.onClicked.addListener((info, tab) => {
-            if (info.menuItemId === 'analyze-job-post') {
-                chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_TRIGGERED' });
+            try {
+                if (info.menuItemId === 'analyze-job-post') {
+                    chrome.tabs.sendMessage(tab.id, { type: 'ANALYZE_TRIGGERED' });
+                }
+            } catch (error) {
+                console.error('Error handling context menu click:', error);
             }
         });
     }
@@ -220,4 +271,8 @@ ${profile.phone}`;
 }
 
 // Initialize background service
-const backgroundService = new BackgroundService();
+try {
+    const backgroundService = new BackgroundService();
+} catch (error) {
+    console.error('Failed to initialize LinkedIn Job Assistant background service:', error);
+}

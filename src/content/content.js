@@ -1,30 +1,83 @@
 // Main Content Script for LinkedIn Job Assistant
 class LinkedInJobAssistant {
-    constructor() {
-        this.parser = new LinkedInParser();
-        this.isAnalyzing = false;
-        this.currentJobData = null;
-        this.init();
+  constructor() {
+    try {
+      // Check if extension context is valid before initialization
+      if (!chrome.runtime?.id) {
+        console.warn('Extension context invalidated. Content script will not initialize.');
+        return;
+      }
+
+      this.parser = new LinkedInParser();
+      this.isAnalyzing = false;
+      this.currentJobData = null;
+      this.contextValid = true;
+      this.init();
+    } catch (error) {
+      console.error('Error initializing LinkedInJobAssistant:', error);
     }
+  }
 
-    init() {
-        this.createFloatingButton();
-        this.setupMessageHandlers();
-        this.observePageChanges();
+  init() {
+    try {
+      this.createFloatingButton();
+      this.setupMessageHandlers();
+      this.observePageChanges();
+      this.setupContextValidator();
+      console.log('LinkedIn Job Assistant initialized successfully');
+    } catch (error) {
+      console.error('Error in content script initialization:', error);
     }
+  }
 
-    // Create floating action button
-    createFloatingButton() {
-        if (document.getElementById('job-assistant-btn')) return;
+  // Setup context validator to detect when extension is reloaded
+  setupContextValidator() {
+    // Check context every 5 seconds
+    this.contextChecker = setInterval(() => {
+      if (!chrome.runtime?.id) {
+        console.warn('Extension context lost. Cleaning up...');
+        this.contextValid = false;
+        this.cleanup();
+      }
+    }, 5000);
+  }
 
-        const button = document.createElement('div');
-        button.id = 'job-assistant-btn';
-        button.innerHTML = `
+  // Cleanup when extension context is lost
+  cleanup() {
+    try {
+      if (this.contextChecker) {
+        clearInterval(this.contextChecker);
+      }
+
+      const button = document.getElementById('job-assistant-btn');
+      if (button) {
+        button.remove();
+      }
+
+      const modal = document.getElementById('job-assistant-modal');
+      if (modal) {
+        modal.remove();
+      }
+
+      // Show user notification about context loss
+      this.showNotification('Extension was updated. Please reload the page for full functionality.', 'warning');
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
+  }
+
+  // Create floating action button
+  createFloatingButton() {
+    if (document.getElementById('job-assistant-btn')) return;
+
+    const button = document.createElement('div');
+    button.id = 'job-assistant-btn';
+    button.innerHTML = `
       <div class="job-assistant-icon">🤖</div>
       <span class="job-assistant-text">Analyze Job</span>
     `;
 
-        button.style.cssText = `
+    button.style.cssText = `
       position: fixed;
       top: 50%;
       right: 20px;
@@ -47,97 +100,143 @@ class LinkedInJobAssistant {
       justify-content: center;
     `;
 
-        button.addEventListener('mouseenter', () => {
-            button.style.transform = 'translateY(-50%) scale(1.05)';
-            button.style.boxShadow = '0 6px 20px rgba(0, 119, 181, 0.4)';
-        });
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-50%) scale(1.05)';
+      button.style.boxShadow = '0 6px 20px rgba(0, 119, 181, 0.4)';
+    });
 
-        button.addEventListener('mouseleave', () => {
-            button.style.transform = 'translateY(-50%) scale(1)';
-            button.style.boxShadow = '0 4px 12px rgba(0, 119, 181, 0.3)';
-        });
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateY(-50%) scale(1)';
+      button.style.boxShadow = '0 4px 12px rgba(0, 119, 181, 0.3)';
+    });
 
-        button.addEventListener('click', () => this.analyzeCurrentPage());
+    button.addEventListener('click', () => this.analyzeCurrentPage());
 
-        document.body.appendChild(button);
+    document.body.appendChild(button);
+  }
+
+  // Analyze current page for job information
+  async analyzeCurrentPage() {
+    if (this.isAnalyzing) return;
+
+    // Check if extension context is still valid
+    if (!this.contextValid || !chrome.runtime?.id) {
+      this.showNotification('Extension context lost. Please reload the page.', 'error');
+      return;
     }
 
-    // Analyze current page for job information
-    async analyzeCurrentPage() {
-        if (this.isAnalyzing) return;
+    const button = document.getElementById('job-assistant-btn');
+    if (!button) {
+      console.warn('Button not found, recreating...');
+      this.createFloatingButton();
+      return;
+    }
 
-        const button = document.getElementById('job-assistant-btn');
-        const originalText = button.querySelector('.job-assistant-text').textContent;
+    const originalText = button.querySelector('.job-assistant-text').textContent;
 
-        try {
-            this.isAnalyzing = true;
-            this.updateButtonState('Analyzing...', '⏳');
+    try {
+      this.isAnalyzing = true;
+      this.updateButtonState('Analyzing...', '⏳');
 
-            // Parse job data from current page
-            const jobData = this.parser.autoDetectAndParse();
+      // Parse job data from current page
+      const jobData = this.parser.autoDetectAndParse();
 
-            if (!jobData || !jobData.isValid) {
-                this.showNotification('No valid job post found on this page', 'warning');
-                return;
-            }
+      if (!jobData || !jobData.isValid) {
+        this.showNotification('No valid job post found on this page', 'warning');
+        return;
+      }
 
-            this.currentJobData = jobData;
+      this.currentJobData = jobData;
 
-            // Send to background script for AI analysis
-            const response = await this.sendToAI(jobData);
+      // Send to background script for AI analysis
+      const response = await this.sendToAI(jobData);
 
-            if (response && response.success) {
-                this.showAnalysisResults(response.data);
-            } else {
-                this.showNotification('Failed to analyze job post', 'error');
-            }
+      if (response && response.success) {
+        this.showAnalysisResults(response.data);
+      } else {
+        const errorMsg = response.error || 'Failed to analyze job post';
+        this.showNotification(errorMsg, 'error');
 
-        } catch (error) {
-            console.error('Error analyzing page:', error);
-            this.showNotification('Error analyzing job post', 'error');
-        } finally {
-            this.isAnalyzing = false;
-            this.updateButtonState(originalText, '🤖');
+        // If context invalidated, suggest page reload
+        if (errorMsg.includes('Extension context invalidated')) {
+          setTimeout(() => {
+            this.showNotification('Please reload the page and try again.', 'warning');
+          }, 2000);
         }
-    }
+      }
 
-    // Send job data to AI backend
-    async sendToAI(jobData) {
-        return new Promise((resolve) => {
-            chrome.runtime.sendMessage({
-                type: 'ANALYZE_JOB',
-                data: jobData
-            }, (response) => {
-                resolve(response);
+    } catch (error) {
+      console.error('Error analyzing page:', error);
+      const errorMsg = error.message.includes('Extension context invalidated')
+        ? 'Extension was updated. Please reload the page.'
+        : 'Error analyzing job post';
+      this.showNotification(errorMsg, 'error');
+    } finally {
+      this.isAnalyzing = false;
+      this.updateButtonState(originalText, '🤖');
+    }
+  }
+
+  // Send job data to AI backend
+  async sendToAI(jobData) {
+    return new Promise((resolve) => {
+      try {
+        // Check if extension context is still valid
+        if (!chrome.runtime?.id) {
+          throw new Error('Extension context invalidated. Please reload the page.');
+        }
+
+        chrome.runtime.sendMessage({
+          type: 'ANALYZE_JOB',
+          data: jobData
+        }, (response) => {
+          // Check for runtime errors
+          if (chrome.runtime.lastError) {
+            console.error('Runtime error:', chrome.runtime.lastError);
+            resolve({
+              success: false,
+              error: 'Extension context invalidated. Please reload the page.'
             });
+            return;
+          }
+
+          resolve(response || { success: false, error: 'No response received' });
         });
+      } catch (error) {
+        console.error('Error sending message to background:', error);
+        resolve({
+          success: false,
+          error: error.message || 'Extension context invalidated. Please reload the page.'
+        });
+      }
+    });
+  }
+
+  // Update button state
+  updateButtonState(text, icon) {
+    const button = document.getElementById('job-assistant-btn');
+    if (button) {
+      button.querySelector('.job-assistant-text').textContent = text;
+      button.querySelector('.job-assistant-icon').textContent = icon;
+    }
+  }
+
+  // Show analysis results modal
+  showAnalysisResults(analysisData) {
+    // Remove existing modal
+    const existingModal = document.getElementById('job-assistant-modal');
+    if (existingModal) {
+      existingModal.remove();
     }
 
-    // Update button state
-    updateButtonState(text, icon) {
-        const button = document.getElementById('job-assistant-btn');
-        if (button) {
-            button.querySelector('.job-assistant-text').textContent = text;
-            button.querySelector('.job-assistant-icon').textContent = icon;
-        }
-    }
-
-    // Show analysis results modal
-    showAnalysisResults(analysisData) {
-        // Remove existing modal
-        const existingModal = document.getElementById('job-assistant-modal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-
-        const modal = document.createElement('div');
-        modal.id = 'job-assistant-modal';
-        modal.innerHTML = `
+    const modal = document.createElement('div');
+    modal.id = 'job-assistant-modal';
+    modal.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal-content">
           <div class="modal-header">
             <h3>Job Analysis Results</h3>
-            <button class="close-btn" onclick="this.closest('#job-assistant-modal').remove()">×</button>
+            <button class="close-btn" id="modal-close-btn">×</button>
           </div>
           <div class="modal-body">
             <div class="status-section">
@@ -164,14 +263,14 @@ class LinkedInJobAssistant {
               </div>
               
               <div class="action-buttons">
-                <button class="btn-primary" onclick="window.jobAssistant.copyEmail('${analysisData.email_subject}', \`${analysisData.email_body}\`)">
+                <button class="btn-primary copy-email-btn" data-subject="${analysisData.email_subject}" data-body="${analysisData.email_body}">
                   Copy Email
                 </button>
-                <button class="btn-secondary" onclick="window.jobAssistant.openEmailClient('${analysisData.contact}', '${analysisData.email_subject}', \`${analysisData.email_body}\`)">
+                <button class="btn-secondary open-email-btn" data-email="${analysisData.contact}" data-subject="${analysisData.email_subject}" data-body="${analysisData.email_body}">
                   Open Email Client
                 </button>
                 ${analysisData.contact ? `
-                  <button class="btn-success" onclick="window.jobAssistant.sendEmail('${analysisData.contact}', '${analysisData.email_subject}', \`${analysisData.email_body}\`)">
+                  <button class="btn-success send-email-btn" data-email="${analysisData.contact}" data-subject="${analysisData.email_subject}" data-body="${analysisData.email_body}">
                     Send Automatically
                   </button>
                 ` : ''}
@@ -182,7 +281,7 @@ class LinkedInJobAssistant {
       </div>
     `;
 
-        modal.style.cssText = `
+    modal.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
@@ -192,8 +291,8 @@ class LinkedInJobAssistant {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
-        // Add styles
-        const styles = `
+    // Add styles
+    const styles = `
       <style>
         #job-assistant-modal .modal-backdrop {
           background: rgba(0, 0, 0, 0.5);
@@ -234,6 +333,18 @@ class LinkedInJobAssistant {
           font-size: 24px;
           cursor: pointer;
           color: #999;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+        }
+        
+        #job-assistant-modal .close-btn:hover {
+          background: #f0f0f0;
+          color: #333;
         }
         
         #job-assistant-modal .modal-body {
@@ -310,50 +421,132 @@ class LinkedInJobAssistant {
       </style>
     `;
 
-        modal.innerHTML = styles + modal.innerHTML;
-        document.body.appendChild(modal);
+    modal.innerHTML = styles + modal.innerHTML;
+    document.body.appendChild(modal);
+
+    // Add event listeners for modal interactions
+    this.setupModalEventListeners(modal, analysisData);
+  }
+
+  // Setup event listeners for modal
+  setupModalEventListeners(modal, analysisData) {
+    // Close button
+    const closeBtn = modal.querySelector('#modal-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        modal.remove();
+      });
     }
 
-    // Copy email to clipboard
-    copyEmail(subject, body) {
-        const text = `Subject: ${subject}\n\n${body}`;
-        navigator.clipboard.writeText(text).then(() => {
-            this.showNotification('Email copied to clipboard!', 'success');
-        });
-    }
-
-    // Open email client
-    openEmailClient(email, subject, body) {
-        const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.open(mailtoLink);
-    }
-
-    // Send email automatically
-    async sendEmail(email, subject, body) {
-        try {
-            const response = await new Promise((resolve) => {
-                chrome.runtime.sendMessage({
-                    type: 'SEND_EMAIL',
-                    data: { email, subject, body }
-                }, resolve);
-            });
-
-            if (response && response.success) {
-                this.showNotification('Email sent successfully!', 'success');
-                document.getElementById('job-assistant-modal').remove();
-            } else {
-                this.showNotification('Failed to send email', 'error');
-            }
-        } catch (error) {
-            console.error('Error sending email:', error);
-            this.showNotification('Error sending email', 'error');
+    // Close on backdrop click
+    const backdrop = modal.querySelector('.modal-backdrop');
+    if (backdrop) {
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+          modal.remove();
         }
+      });
     }
 
-    // Show notification
-    showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.style.cssText = `
+    // Close on Escape key
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        modal.remove();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+
+    // Copy email button
+    const copyEmailBtn = modal.querySelector('.copy-email-btn');
+    if (copyEmailBtn) {
+      copyEmailBtn.addEventListener('click', () => {
+        const subject = copyEmailBtn.dataset.subject;
+        const body = copyEmailBtn.dataset.body;
+        this.copyEmail(subject, body);
+      });
+    }
+
+    // Open email client button
+    const openEmailBtn = modal.querySelector('.open-email-btn');
+    if (openEmailBtn) {
+      openEmailBtn.addEventListener('click', () => {
+        const email = openEmailBtn.dataset.email;
+        const subject = openEmailBtn.dataset.subject;
+        const body = openEmailBtn.dataset.body;
+        this.openEmailClient(email, subject, body);
+      });
+    }
+
+    // Send email button
+    const sendEmailBtn = modal.querySelector('.send-email-btn');
+    if (sendEmailBtn) {
+      sendEmailBtn.addEventListener('click', () => {
+        const email = sendEmailBtn.dataset.email;
+        const subject = sendEmailBtn.dataset.subject;
+        const body = sendEmailBtn.dataset.body;
+        this.sendEmail(email, subject, body);
+      });
+    }
+  }
+
+  // Copy email to clipboard
+  copyEmail(subject, body) {
+    const text = `Subject: ${subject}\n\n${body}`;
+    navigator.clipboard.writeText(text).then(() => {
+      this.showNotification('Email copied to clipboard!', 'success');
+    });
+  }
+
+  // Open email client
+  openEmailClient(email, subject, body) {
+    const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink);
+  }
+
+  // Send email automatically
+  async sendEmail(email, subject, body) {
+    try {
+      // Check if extension context is still valid
+      if (!chrome.runtime?.id) {
+        throw new Error('Extension context invalidated. Please reload the page.');
+      }
+
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          type: 'SEND_EMAIL',
+          data: { email, subject, body }
+        }, (response) => {
+          // Check for runtime errors
+          if (chrome.runtime.lastError) {
+            console.error('Runtime error:', chrome.runtime.lastError);
+            resolve({
+              success: false,
+              error: 'Extension context invalidated. Please reload the page.'
+            });
+            return;
+          }
+
+          resolve(response || { success: false, error: 'No response received' });
+        });
+      });
+
+      if (response && response.success) {
+        this.showNotification('Email sent successfully!', 'success');
+        document.getElementById('job-assistant-modal').remove();
+      } else {
+        this.showNotification(response.error || 'Failed to send email', 'error');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      this.showNotification(error.message || 'Error sending email', 'error');
+    }
+  }
+
+  // Show notification
+  showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
@@ -367,57 +560,97 @@ class LinkedInJobAssistant {
       animation: slideIn 0.3s ease;
     `;
 
-        notification.textContent = message;
-        document.body.appendChild(notification);
+    notification.textContent = message;
+    document.body.appendChild(notification);
 
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease forwards';
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
+    setTimeout(() => {
+      notification.style.animation = 'slideOut 0.3s ease forwards';
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }
+
+  // Setup message handlers for communication with background script
+  setupMessageHandlers() {
+    try {
+      // Check if extension context is valid
+      if (!chrome.runtime?.id) {
+        console.warn('Extension context invalidated during setup');
+        return;
+      }
+
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        try {
+          if (!message || !message.type) {
+            sendResponse({ success: false, error: 'Invalid message format' });
+            return false;
+          }
+
+          switch (message.type) {
+            case 'GET_PAGE_DATA':
+              const jobData = this.parser.autoDetectAndParse();
+              sendResponse({ data: jobData });
+              break;
+
+            case 'ANALYZE_TRIGGERED':
+              this.analyzeCurrentPage();
+              sendResponse({ success: true });
+              break;
+
+            default:
+              sendResponse({ success: false, error: 'Unknown message type' });
+              break;
+          }
+        } catch (error) {
+          console.error('Error in message handler:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+
+        return false; // Don't keep channel open
+      });
+    } catch (error) {
+      console.error('Error setting up message handlers:', error);
     }
+  }
 
-    // Setup message handlers for communication with background script
-    setupMessageHandlers() {
-        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            switch (message.type) {
-                case 'GET_PAGE_DATA':
-                    const jobData = this.parser.autoDetectAndParse();
-                    sendResponse({ data: jobData });
-                    break;
+  // Observe page changes (for SPA navigation)
+  observePageChanges() {
+    let currentUrl = window.location.href;
 
-                case 'ANALYZE_TRIGGERED':
-                    this.analyzeCurrentPage();
-                    break;
-            }
-        });
-    }
+    const observer = new MutationObserver(() => {
+      if (currentUrl !== window.location.href) {
+        currentUrl = window.location.href;
+        // Recreate button after navigation
+        setTimeout(() => this.createFloatingButton(), 1000);
+      }
+    });
 
-    // Observe page changes (for SPA navigation)
-    observePageChanges() {
-        let currentUrl = window.location.href;
-
-        const observer = new MutationObserver(() => {
-            if (currentUrl !== window.location.href) {
-                currentUrl = window.location.href;
-                // Recreate button after navigation
-                setTimeout(() => this.createFloatingButton(), 1000);
-            }
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
 }
 
 // Initialize when page loads
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        window.jobAssistant = new LinkedInJobAssistant();
-    });
-} else {
-    window.jobAssistant = new LinkedInJobAssistant();
+try {
+  // Check if extension context is valid before initialization
+  if (!chrome.runtime?.id) {
+    console.warn('Extension context invalidated. LinkedIn Job Assistant will not initialize.');
+  } else {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          window.jobAssistant = new LinkedInJobAssistant();
+        } catch (error) {
+          console.error('Error initializing LinkedIn Job Assistant on DOMContentLoaded:', error);
+        }
+      });
+    } else {
+      window.jobAssistant = new LinkedInJobAssistant();
+    }
+  }
+} catch (error) {
+  console.error('Error during LinkedIn Job Assistant initialization:', error);
 }
 
 // Add CSS animations
