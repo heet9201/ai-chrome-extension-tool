@@ -204,7 +204,7 @@ class JobAnalysisAgent:
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a smart AI agent that helps automate job applications. Analyze job posts and return JSON responses as specified."
+                            "content": "You are a smart AI agent that helps automate job applications. You MUST respond with valid JSON only, no additional text or explanations. Follow the exact JSON format specified in the user prompt."
                         },
                         {
                             "role": "user",
@@ -222,7 +222,7 @@ class JobAnalysisAgent:
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a smart AI agent that helps automate job applications. Analyze job posts and return JSON responses as specified."
+                            "content": "You are a smart AI agent that helps automate job applications. You MUST respond with valid JSON only, no additional text or explanations. Follow the exact JSON format specified in the user prompt."
                         },
                         {
                             "role": "user",
@@ -239,16 +239,26 @@ class JobAnalysisAgent:
             
             # Try to extract JSON from response
             try:
-                # Look for JSON in the response
-                json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
-                if json_match:
-                    result = json.loads(json_match.group())
-                    return self._validate_and_enhance_result(result, job, profile)
+                print(f"🤖 AI Response from {self.provider}:")
+                print(f"Raw response: {ai_response[:500]}...")  # Show first 500 chars for debugging
+                
+                # Try multiple JSON extraction methods
+                json_result = self._extract_json_from_response(ai_response)
+                
+                if json_result:
+                    print("✅ Successfully extracted JSON from AI response")
+                    return self._validate_and_enhance_result(json_result, job, profile)
                 else:
-                    raise ValueError("No JSON found in AI response")
-            except json.JSONDecodeError:
-                # Fallback to rule-based if JSON parsing fails
-                print("Failed to parse AI response as JSON, falling back to rule-based analysis")
+                    raise ValueError("No valid JSON found in AI response")
+                    
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON parsing error: {str(e)}")
+                print(f"🔄 AI response that failed to parse: {ai_response}")
+                print("🔄 Falling back to rule-based analysis")
+                return self._rule_based_analysis(job, profile)
+            except Exception as e:
+                print(f"❌ Error extracting JSON: {str(e)}")
+                print("🔄 Falling back to rule-based analysis")
                 return self._rule_based_analysis(job, profile)
                 
         except Exception as e:
@@ -437,8 +447,9 @@ INSTRUCTIONS:
 1. Analyze if this job is relevant to the user's profile
 2. Extract contact information if available
 3. Generate a personalized application email if relevant
-4. Return response in the following JSON format:
+4. Return ONLY a valid JSON response in the exact format below (no additional text):
 
+```json
 {{
   "status": "RELEVANT" or "NOT RELEVANT",
   "reason": "1-2 line explanation of your decision",
@@ -447,27 +458,52 @@ INSTRUCTIONS:
   "email_body": "Professional email body with personalized content",
   "attachment_required": true
 }}
+```
 
-Keep the email professional, concise, and personalized. Don't exaggerate skills or experience.
+IMPORTANT: 
+- Return ONLY the JSON, no other text
+- Use double quotes for all strings
+- If no contact email found, use null (not "null")
+- Keep email content professional and concise
+- Don't include newlines in JSON string values, use \\n instead
 """
     
     def _validate_and_enhance_result(self, result: dict, job: JobData, profile: UserProfile) -> dict:
         """Validate and enhance AI-generated result"""
         
+        print(f"🔍 Validating AI result: {result}")
+        
         # Ensure required fields exist
         required_fields = ['status', 'reason', 'contact', 'email_subject', 'email_body', 'attachment_required']
         for field in required_fields:
             if field not in result:
-                result[field] = ""
+                print(f"⚠️ Missing field '{field}', setting to default value")
+                if field == 'attachment_required':
+                    result[field] = False
+                elif field == 'contact':
+                    result[field] = None
+                else:
+                    result[field] = ""
         
         # Validate status
         if result['status'] not in ['RELEVANT', 'NOT RELEVANT']:
+            print(f"⚠️ Invalid status '{result['status']}', setting to NOT RELEVANT")
             result['status'] = 'NOT RELEVANT'
+        
+        # Ensure contact is properly formatted
+        if result['contact'] == 'null' or result['contact'] == '':
+            result['contact'] = None
         
         # Set attachment_required for relevant jobs
         if result['status'] == 'RELEVANT':
             result['attachment_required'] = True
         
+        # Clean up email content (remove any problematic characters)
+        if result['email_body']:
+            # Replace literal \n with actual newlines
+            result['email_body'] = result['email_body'].replace('\\n', '\n')
+        
+        print(f"✅ Validated result: {result}")
         return result
     
     def _error_response(self, error_message: str) -> dict:
@@ -480,6 +516,68 @@ Keep the email professional, concise, and personalized. Don't exaggerate skills 
             "email_body": "",
             "attachment_required": False
         }
+    
+    def _extract_json_from_response(self, response: str) -> Optional[dict]:
+        """Extract JSON from AI response using multiple methods"""
+        
+        # Method 1: Try direct JSON parsing (if response is pure JSON)
+        try:
+            return json.loads(response.strip())
+        except json.JSONDecodeError:
+            pass
+        
+        # Method 2: Look for JSON code blocks (```json ... ```)
+        json_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+        json_match = re.search(json_block_pattern, response, re.DOTALL | re.IGNORECASE)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+        
+        # Method 3: Look for balanced braces (improved version)
+        brace_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+        matches = re.findall(brace_pattern, response, re.DOTALL)
+        for match in matches:
+            try:
+                return json.loads(match)
+            except json.JSONDecodeError:
+                continue
+        
+        # Method 4: Find the largest JSON-like structure
+        start_idx = response.find('{')
+        if start_idx != -1:
+            brace_count = 0
+            for i, char in enumerate(response[start_idx:], start_idx):
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        try:
+                            json_str = response[start_idx:i+1]
+                            return json.loads(json_str)
+                        except json.JSONDecodeError:
+                            break
+        
+        # Method 5: Try to fix common JSON issues
+        try:
+            # Remove any text before the first { and after the last }
+            start = response.find('{')
+            end = response.rfind('}')
+            if start != -1 and end != -1 and end > start:
+                json_candidate = response[start:end+1]
+                
+                # Fix common issues
+                json_candidate = json_candidate.replace('\n', '\\n')
+                json_candidate = re.sub(r',\s*}', '}', json_candidate)  # Remove trailing commas
+                json_candidate = re.sub(r',\s*]', ']', json_candidate)  # Remove trailing commas in arrays
+                
+                return json.loads(json_candidate)
+        except json.JSONDecodeError:
+            pass
+        
+        return None
 
 # Convenience function for external use
 def analyze_job_post(job_data: dict, user_profile: dict, ai_settings: dict = None) -> dict:

@@ -2,6 +2,9 @@
 class OptionsController {
     constructor() {
         this.userProfile = null;
+        this.isLoadingAiSettings = false; // Flag to prevent concurrent loading
+        this.lastAiSettingsLoad = 0; // Timestamp of last load to prevent rapid calls
+        this.AI_SETTINGS_DEBOUNCE_MS = 1000; // Minimum time between loads
         this.init();
     }
 
@@ -9,10 +12,51 @@ class OptionsController {
         this.setupEventListeners();
         this.setupTabs();
         this.setupFileUpload();
+        this.initializeApiKeyInputs();
         await this.loadUserProfile();
         await this.loadAiSettings();
         this.populateForm();
         this.updateLastUpdated();
+    }
+
+    // Initialize API key inputs to proper state
+    initializeApiKeyInputs() {
+        const apiKeyInputs = ['openaiApiKey', 'groqApiKey'];
+
+        apiKeyInputs.forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                // Initialize data attributes but don't force any specific state
+                // The actual state will be determined by loadApiKeyStatus()
+                input.dataset.hasStoredKey = 'false';
+                input.dataset.showingStoredKey = 'false';
+                input.dataset.userEnteredKey = '';
+
+                // Find the toggle button by ID (more reliable)
+                const provider = inputId.replace('ApiKey', '');
+                const toggleButton = document.getElementById(`${provider}ToggleBtn`);
+                if (toggleButton) {
+                    toggleButton.textContent = '👁️';
+                    toggleButton.title = 'Show API key';
+                }
+
+                // Add click listener to input for editing
+                input.addEventListener('click', async () => {
+                    await this.makeInputEditable(inputId);
+                });
+
+                // Add input listener for user typing
+                input.addEventListener('input', (e) => {
+                    if (!e.target.hasAttribute('readonly')) {
+                        e.target.dataset.userEnteredKey = e.target.value;
+                        e.target.dataset.showingStoredKey = 'false';
+                        console.log(`📝 User input captured for ${inputId}: "${e.target.value}"`);
+                        console.log(`📝 userEnteredKey set to: "${e.target.dataset.userEnteredKey}"`);
+                        this.markAsChanged(); // Mark as changed when user types
+                    }
+                });
+            }
+        });
     }
 
     // Setup event listeners
@@ -45,6 +89,93 @@ class OptionsController {
         document.querySelectorAll('input, select, textarea').forEach(element => {
             element.addEventListener('change', () => this.markAsChanged());
         });
+
+        // API key input tracking
+        document.querySelectorAll('input[id$="ApiKey"]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                // Mark that user has entered a key if they're typing
+                if (e.target.type === 'text' || e.target.type === 'password') {
+                    if (!e.target.hasAttribute('readonly')) {
+                        e.target.dataset.userEnteredKey = e.target.value;
+                        e.target.dataset.showingStoredKey = 'false';
+                        console.log(`📝 API key input event for ${e.target.id}: "${e.target.value}"`);
+                        console.log(`📝 userEnteredKey updated to: "${e.target.dataset.userEnteredKey}"`);
+                    }
+                }
+            });
+        });
+
+        // API key management button listeners
+        this.setupApiKeyButtonListeners();
+    }
+
+    // Make API key input editable
+    async makeInputEditable(inputId) {
+        const input = document.getElementById(inputId);
+        const provider = inputId.replace('ApiKey', '');
+
+        if (!input) return;
+
+        // If already editable, do nothing
+        if (!input.hasAttribute('readonly')) return;
+
+        console.log(`📝 Making ${inputId} editable`);
+        console.log(`📊 Input state before edit:`, {
+            hasStoredKey: input.dataset.hasStoredKey,
+            storedKey: input.dataset.storedKey ? '[PRESENT]' : '[EMPTY]',
+            value: input.value ? '[PRESENT]' : '[EMPTY]',
+            type: input.type
+        });
+
+        // Make input editable
+        input.removeAttribute('readonly');
+        input.classList.add('editing');
+        input.type = 'text'; // Always show as text while editing
+
+        // If we have a stored key, load it for editing
+        if (input.dataset.hasStoredKey === 'true') {
+            // If we already have the stored key in memory, use it
+            if (input.dataset.storedKey) {
+                console.log(`🔑 Using cached stored key for ${provider}`);
+                input.value = input.dataset.storedKey;
+                input.placeholder = 'Edit your API key';
+            } else {
+                // Fetch the stored key from backend
+                console.log(`🔍 Fetching stored key for editing ${provider}...`);
+                try {
+                    const storedKey = await this.fetchStoredApiKey(provider);
+                    if (storedKey) {
+                        console.log(`✅ Retrieved stored key for editing ${provider}`);
+                        input.value = storedKey;
+                        input.dataset.storedKey = storedKey; // Cache it for future use
+                        input.placeholder = 'Edit your API key';
+                    } else {
+                        console.log(`⚠️ No stored key found for ${provider}, allowing new entry`);
+                        input.placeholder = 'Enter your API key';
+                    }
+                } catch (error) {
+                    console.error(`❌ Error fetching stored key for ${provider}:`, error);
+                    input.placeholder = 'Enter your API key';
+                    this.showApiKeyMessage(provider, 'Failed to load stored key. You can enter a new one.', 'warning');
+                }
+            }
+        } else {
+            // No stored key, ready for new entry
+            console.log(`📝 No stored key for ${provider}, ready for new entry`);
+            input.value = '';
+            input.placeholder = 'Enter your API key';
+        }
+
+        // Focus and select after a small delay to ensure value is set
+        setTimeout(() => {
+            input.focus();
+        }, 50);
+
+        // Show appropriate message
+        const message = input.dataset.hasStoredKey === 'true'
+            ? 'Input is now editable. Modify your API key and save settings.'
+            : 'Input is now editable. Enter your API key and save settings.';
+        this.showApiKeyMessage(provider, message, 'info');
     }
 
     // Setup tab navigation
@@ -489,8 +620,12 @@ class OptionsController {
         // Show relevant API key group
         if (provider === 'openai') {
             openaiGroup.style.display = 'block';
+            // Load status for OpenAI
+            this.loadApiKeyStatus('openai');
         } else if (provider === 'groq') {
             groqGroup.style.display = 'block';
+            // Load status for Groq
+            this.loadApiKeyStatus('groq');
         }
 
         // Enable/disable buttons based on selection
@@ -498,8 +633,8 @@ class OptionsController {
         testBtn.disabled = !hasProvider;
         saveBtn.disabled = !hasProvider;
 
-        // Load existing API key if available
-        this.loadAiSettings();
+        // Note: Removed loadAiSettings() call to prevent circular loading
+        // AI settings are loaded once during init() and when explicitly needed
     }
 
     // Update temperature slider value display
@@ -518,10 +653,24 @@ class OptionsController {
         }
 
         let apiKey = '';
-        if (provider === 'openai') {
-            apiKey = document.getElementById('openaiApiKey').value;
-        } else if (provider === 'groq') {
-            apiKey = document.getElementById('groqApiKey').value;
+        const keyInput = document.getElementById(`${provider}ApiKey`);
+
+        // Get the API key from input or from user-entered data if hidden
+        if (keyInput.type === 'text' && keyInput.value) {
+            apiKey = keyInput.value;
+        } else if (keyInput.type === 'password' && keyInput.dataset.userEnteredKey) {
+            apiKey = keyInput.dataset.userEnteredKey;
+        } else if (keyInput.value) {
+            apiKey = keyInput.value;
+        }
+
+        // If no key in input, check if we have a stored key
+        if (!apiKey && keyInput.dataset.hasStoredKey === 'true') {
+            try {
+                apiKey = await this.fetchStoredApiKey(provider);
+            } catch (error) {
+                console.error('Error fetching stored key for test:', error);
+            }
         }
 
         if (!apiKey) {
@@ -533,6 +682,9 @@ class OptionsController {
         testResult.style.display = 'block';
         testResult.className = 'test-result loading';
         testResult.innerHTML = '🔄 Testing AI connection...';
+
+        // Update status indicator
+        this.setApiKeyTestingStatus(provider, true);
 
         try {
             const response = await fetch('http://localhost:5000/api/test-ai', {
@@ -552,16 +704,25 @@ class OptionsController {
                 testResult.className = 'test-result success';
                 testResult.innerHTML = `✅ Connection successful! Model: ${result.model || 'N/A'}`;
                 this.showNotification('AI connection test successful!', 'success');
+
+                // Update status to show key is valid (without revealing any key data)
+                this.updateApiKeyStatus(provider, true);
             } else {
                 testResult.className = 'test-result error';
                 testResult.innerHTML = `❌ Connection failed: ${result.error || 'Unknown error'}`;
                 this.showNotification('AI connection test failed', 'error');
+
+                // Restore previous status
+                this.loadApiKeyStatus(provider);
             }
         } catch (error) {
             console.error('AI test error:', error);
             testResult.className = 'test-result error';
             testResult.innerHTML = `❌ Connection failed: ${error.message}`;
             this.showNotification('AI connection test failed', 'error');
+
+            // Restore previous status
+            this.loadApiKeyStatus(provider);
         }
     }
 
@@ -575,16 +736,45 @@ class OptionsController {
         }
 
         let apiKey = '';
-        if (provider === 'openai') {
-            apiKey = document.getElementById('openaiApiKey').value;
-        } else if (provider === 'groq') {
-            apiKey = document.getElementById('groqApiKey').value;
+        const keyInput = document.getElementById(`${provider}ApiKey`);
+
+        console.log(`🔍 saveAiSettings: Determining API key for ${provider}`);
+        console.log(`📊 Input state:`, {
+            type: keyInput.type,
+            value: keyInput.value ? '[PRESENT]' : '[EMPTY]',
+            readonly: keyInput.hasAttribute('readonly'),
+            userEnteredKey: keyInput.dataset.userEnteredKey ? '[PRESENT]' : '[EMPTY]',
+            hasStoredKey: keyInput.dataset.hasStoredKey,
+            storedKey: keyInput.dataset.storedKey ? '[PRESENT]' : '[EMPTY]',
+            showingStoredKey: keyInput.dataset.showingStoredKey
+        });
+
+        // Get the API key from various sources
+        if (keyInput.dataset.userEnteredKey) {
+            // User has entered a new key
+            apiKey = keyInput.dataset.userEnteredKey;
+            console.log(`✅ Using userEnteredKey: "${apiKey}"`);
+        } else if (keyInput.type === 'text' && keyInput.value) {
+            // Key is currently visible (typed or shown)
+            apiKey = keyInput.value;
+            console.log(`✅ Using visible input value: "${apiKey}"`);
+        } else if (keyInput.type === 'password' && keyInput.value) {
+            // Key is masked but present
+            apiKey = keyInput.value;
+            console.log(`✅ Using password input value: "${apiKey}"`);
+        } else if (keyInput.dataset.hasStoredKey === 'true' && keyInput.dataset.storedKey) {
+            // Use the stored key if no new key entered
+            apiKey = keyInput.dataset.storedKey;
+            console.log(`✅ Using stored key: "${apiKey}"`);
         }
 
         if (!apiKey) {
-            this.showNotification('Please enter an API key', 'error');
+            console.log(`❌ No API key found for ${provider}!`);
+            this.showNotification('Please enter an API key or load a stored one', 'error');
             return;
         }
+
+        console.log(`📦 Final API key to save for ${provider}: "${apiKey}"`);
 
         const aiSettings = {
             provider: provider,
@@ -593,6 +783,14 @@ class OptionsController {
             max_tokens: parseInt(document.getElementById('maxTokens').value),
             enable_optimizations: document.getElementById('enableAiOptimizations').checked
         };
+
+        console.log(`📤 Sending AI settings to backend:`, {
+            provider: aiSettings.provider,
+            api_key: aiSettings.api_key ? '[PRESENT]' : '[EMPTY]',
+            temperature: aiSettings.temperature,
+            max_tokens: aiSettings.max_tokens,
+            enable_optimizations: aiSettings.enable_optimizations
+        });
 
         this.showLoading('Saving AI settings...');
 
@@ -609,6 +807,54 @@ class OptionsController {
 
             if (response.ok && result.success) {
                 this.showNotification('AI settings saved successfully!', 'success');
+
+                // Reset save button to normal state
+                const saveBtn = document.getElementById('saveAiBtn');
+                if (saveBtn) {
+                    saveBtn.style.background = '';
+                    saveBtn.style.color = '';
+                    saveBtn.textContent = '💾 Save AI Settings';
+                }
+
+                // Update the stored key data
+                keyInput.dataset.storedKey = apiKey;
+                keyInput.dataset.hasStoredKey = 'true';
+                keyInput.dataset.userEnteredKey = '';
+                keyInput.classList.add('has-stored-key');
+
+                // Reset input to readonly and masked state
+                keyInput.setAttribute('readonly', 'readonly');
+                keyInput.type = 'password';
+                keyInput.value = '';
+                keyInput.placeholder = '••••••••••••••••••••';
+                keyInput.dataset.showingStoredKey = 'false';
+
+                // Update button states
+                const editBtn = document.getElementById(`${provider}EditKeyBtn`);
+                const toggleBtn = document.getElementById(`${provider}ToggleBtn`);
+
+                if (editBtn) {
+                    editBtn.disabled = false;
+                    editBtn.textContent = '✏️';
+                    editBtn.title = 'Edit API key';
+                }
+
+                if (toggleBtn) {
+                    toggleBtn.disabled = false;
+                    toggleBtn.textContent = '👁️';
+                    toggleBtn.title = 'Show API key';
+                    toggleBtn.classList.remove('showing');
+                }
+
+                // Update status to show key is stored
+                this.updateApiKeyStatus(provider, true);
+
+                // Make input readonly after successful save
+                keyInput.setAttribute('readonly', 'readonly');
+                keyInput.classList.remove('editing');
+                keyInput.type = 'password';
+                keyInput.placeholder = '••••••••••••••••••••';
+
                 this.markAsSaved();
             } else {
                 this.showNotification(`Failed to save AI settings: ${result.error}`, 'error');
@@ -623,6 +869,24 @@ class OptionsController {
 
     // Load AI settings
     async loadAiSettings() {
+        const now = Date.now();
+
+        // Prevent concurrent loading
+        if (this.isLoadingAiSettings) {
+            console.log('AI settings already loading, skipping...');
+            return;
+        }
+
+        // Debounce rapid successive calls
+        if (now - this.lastAiSettingsLoad < this.AI_SETTINGS_DEBOUNCE_MS) {
+            console.log('AI settings load debounced, too soon since last load');
+            return;
+        }
+
+        console.log('Loading AI settings...');
+        this.isLoadingAiSettings = true;
+        this.lastAiSettingsLoad = now;
+
         try {
             const response = await fetch('http://localhost:5000/api/ai-settings');
 
@@ -631,12 +895,29 @@ class OptionsController {
 
                 if (result.success && result.settings) {
                     const settings = result.settings;
-
-                    // Set provider
+                    console.log('Successfully loaded AI settings:', settings);                    // Set provider (but avoid triggering handleAiProviderChange recursively)
                     if (settings.provider) {
-                        document.getElementById('aiProvider').value = settings.provider;
-                        this.handleAiProviderChange(settings.provider);
+                        const providerSelect = document.getElementById('aiProvider');
+                        if (providerSelect.value !== settings.provider) {
+                            console.log(`Setting provider to: ${settings.provider}`);
+                            // Temporarily remove event listener to prevent recursive calls
+                            const originalHandler = providerSelect.onchange;
+                            providerSelect.onchange = null;
+
+                            providerSelect.value = settings.provider;
+                            this.handleAiProviderChange(settings.provider);
+
+                            // Restore event listener
+                            providerSelect.onchange = originalHandler;
+                        }
+
+                        // Load and display stored API key status for the current provider
+                        await this.loadApiKeyStatus(settings.provider);
                     }
+
+                    // Always load status for both providers to ensure proper initialization
+                    await this.loadApiKeyStatus('openai');
+                    await this.loadApiKeyStatus('groq');
 
                     // Set model parameters
                     if (settings.temperature !== undefined) {
@@ -658,10 +939,24 @@ class OptionsController {
                         document.getElementById('testAiBtn').disabled = false;
                         document.getElementById('saveAiBtn').disabled = false;
                     }
+                } else {
+                    console.log('No AI settings found, initializing inputs with default state');
                 }
+            } else {
+                console.log('Failed to load AI settings, initializing inputs with default state');
             }
+
+            // Always load status for both providers to ensure proper initialization
+            await this.loadApiKeyStatus('openai');
+            await this.loadApiKeyStatus('groq');
         } catch (error) {
             console.error('Load AI settings error:', error);
+
+            // On error, still try to initialize both inputs
+            await this.loadApiKeyStatus('openai');
+            await this.loadApiKeyStatus('groq');
+        } finally {
+            this.isLoadingAiSettings = false;
         }
     }
 
@@ -687,6 +982,10 @@ class OptionsController {
                 document.getElementById('groqApiKey').value = '';
                 this.handleAiProviderChange('');
 
+                // Reset all status indicators
+                this.updateApiKeyStatus('openai', false);
+                this.updateApiKeyStatus('groq', false);
+
                 // Hide test result
                 document.getElementById('aiTestResult').style.display = 'none';
 
@@ -702,53 +1001,458 @@ class OptionsController {
         }
     }
 
-    // ==================== UTILITY METHODS ====================
+    // Load and display API key status for a provider
+    async loadApiKeyStatus(provider) {
+        try {
+            console.log(`Loading API key status for ${provider}...`);
 
-    // Show loading overlay
-    showLoading(text = 'Loading...') {
-        document.getElementById('loadingText').textContent = text;
-        document.getElementById('loadingOverlay').style.display = 'flex';
+            // Check if we have a stored key for this provider
+            const response = await fetch(`http://localhost:5000/api/ai-settings/key-status?provider=${provider}`);
+
+            if (response.ok) {
+                const result = await response.json();
+                this.updateApiKeyStatus(provider, result.hasKey, result.keyPreview);
+
+                // Update input state based on key status
+                const input = document.getElementById(`${provider}ApiKey`);
+                const editBtn = document.getElementById(`${provider}EditKeyBtn`);
+                const toggleBtn = document.getElementById(`${provider}ToggleBtn`);
+
+                if (input && result.hasKey) {
+                    console.log(`Setting ${provider} input to stored key state`);
+                    input.dataset.hasStoredKey = 'true';
+                    input.classList.add('has-stored-key');
+                    input.setAttribute('readonly', 'readonly');
+                    input.type = 'password';
+                    input.value = '';
+                    input.placeholder = '••••••••••••••••••••';
+                    input.dataset.showingStoredKey = 'false';
+                    input.dataset.userEnteredKey = '';
+
+                    if (editBtn) {
+                        editBtn.disabled = false;
+                        editBtn.textContent = '✏️';
+                    }
+                    if (toggleBtn) {
+                        toggleBtn.disabled = false;
+                        toggleBtn.textContent = '👁️';
+                    }
+                } else if (input) {
+                    console.log(`Setting ${provider} input to no-key state`);
+                    input.dataset.hasStoredKey = 'false';
+                    input.classList.remove('has-stored-key');
+                    input.removeAttribute('readonly');
+                    input.type = 'password';
+                    input.value = '';
+                    input.placeholder = 'Enter your API key';
+                    input.dataset.showingStoredKey = 'false';
+                    input.dataset.userEnteredKey = '';
+
+                    if (editBtn) {
+                        editBtn.disabled = true;
+                        editBtn.textContent = '✏️';
+                    }
+                    if (toggleBtn) {
+                        toggleBtn.disabled = true;
+                        toggleBtn.textContent = '👁️';
+                    }
+                }
+            } else {
+                // Fallback: check if we can get provider settings
+                const settingsResponse = await fetch('http://localhost:5000/api/ai-settings');
+                if (settingsResponse.ok) {
+                    const settingsResult = await settingsResponse.json();
+                    const hasKey = settingsResult.settings && settingsResult.settings.provider === provider;
+                    this.updateApiKeyStatus(provider, hasKey);
+                }
+            }
+        } catch (error) {
+            console.error(`Error loading API key status for ${provider}:`, error);
+
+            // Set input to default no-key state on error
+            const input = document.getElementById(`${provider}ApiKey`);
+            if (input) {
+                console.log(`Setting ${provider} input to default no-key state due to error`);
+                input.dataset.hasStoredKey = 'false';
+                input.classList.remove('has-stored-key');
+                input.removeAttribute('readonly');
+                input.type = 'password';
+                input.value = '';
+                input.placeholder = 'Enter your API key';
+                input.dataset.showingStoredKey = 'false';
+                input.dataset.userEnteredKey = '';
+            }
+
+            this.updateApiKeyStatus(provider, false);
+        }
     }
 
-    // Hide loading overlay
-    hideLoading() {
-        document.getElementById('loadingOverlay').style.display = 'none';
+    // Update API key status display
+    updateApiKeyStatus(provider, hasKey, keyPreview = null) {
+        const statusContainer = document.getElementById(`${provider}KeyStatus`);
+        const statusIndicator = document.getElementById(`${provider}StatusIndicator`);
+        const statusText = document.getElementById(`${provider}StatusText`);
+        const keyInput = document.getElementById(`${provider}ApiKey`);
+
+        if (!statusContainer) return;
+
+        // Remove all status classes
+        statusContainer.classList.remove('stored', 'not-stored', 'testing');
+        statusIndicator.classList.remove('stored', 'not-stored', 'testing');
+
+        if (hasKey) {
+            // Key is stored
+            statusContainer.classList.add('stored');
+            statusIndicator.classList.add('stored');
+            statusText.textContent = 'API key stored and encrypted';
+
+            // Mark input as having a stored key but don't show any preview
+            keyInput.classList.add('has-stored-key');
+            keyInput.dataset.hasStoredKey = 'true';
+
+            // Only show placeholder dots when input is empty and hidden
+            if (!keyInput.value && keyInput.type === 'password') {
+                keyInput.placeholder = '••••••••••••••••••••';
+            }
+        } else {
+            // No key stored
+            statusContainer.classList.add('not-stored');
+            statusIndicator.classList.add('not-stored');
+            statusText.textContent = 'No API key stored';
+            keyInput.classList.remove('has-stored-key');
+            keyInput.dataset.hasStoredKey = 'false';
+            keyInput.placeholder = 'Enter your API key';
+        }
     }
 
-    // Show notification
+    // Set testing status for API key
+    setApiKeyTestingStatus(provider, isTesting = true) {
+        const statusContainer = document.getElementById(`${provider}KeyStatus`);
+        const statusIndicator = document.getElementById(`${provider}StatusIndicator`);
+        const statusText = document.getElementById(`${provider}StatusText`);
+
+        if (!statusContainer) return;
+
+        if (isTesting) {
+            statusContainer.classList.remove('stored', 'not-stored');
+            statusContainer.classList.add('testing');
+            statusIndicator.classList.remove('stored', 'not-stored');
+            statusIndicator.classList.add('testing');
+            statusText.textContent = 'Testing API key...';
+        }
+    }
+
+    // ==================== API KEY MANAGEMENT FUNCTIONS ====================
+
+    // Global function for loading stored API key
+    async loadStoredApiKey(provider) {
+        console.log(`📥 Loading stored API key for provider: ${provider}`);
+
+        const input = document.getElementById(`${provider}ApiKey`);
+        const loadBtn = document.getElementById(`${provider}LoadKeyBtn`);
+        const editBtn = document.getElementById(`${provider}EditKeyBtn`);
+        const toggleBtn = document.getElementById(`${provider}ToggleBtn`);
+
+        if (!input || !loadBtn) {
+            console.error(`❌ Required elements not found for ${provider}`);
+            return;
+        }
+
+        // Show loading state
+        const originalText = loadBtn.textContent;
+        loadBtn.textContent = '⏳';
+        loadBtn.disabled = true;
+
+        try {
+            const response = await fetch(`http://localhost:5000/api/ai-settings/get-key`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ provider: provider })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.apiKey) {
+                console.log(`✅ Successfully loaded API key for ${provider}`);
+
+                // Store the key in dataset but don't show it yet
+                input.dataset.storedKey = result.apiKey;
+                input.dataset.hasStoredKey = 'true';
+                input.dataset.showingStoredKey = 'false';
+                input.dataset.userEnteredKey = ''; // Clear any user-entered key
+                input.classList.add('has-stored-key');
+
+                // Make input readonly and masked
+                input.setAttribute('readonly', 'readonly');
+                input.classList.remove('editing');
+                input.type = 'password';
+                input.value = '';
+                input.placeholder = '••••••••••••••••••••';
+
+                // Update button states
+                if (editBtn) {
+                    editBtn.disabled = false;
+                    editBtn.textContent = '✏️';
+                    editBtn.title = 'Edit API key';
+                }
+                if (toggleBtn) {
+                    toggleBtn.disabled = false;
+                    toggleBtn.textContent = '👁️';
+                    toggleBtn.title = 'Show API key';
+                    toggleBtn.classList.remove('showing');
+                }
+
+                // Update status
+                this.updateApiKeyStatus(provider, true);
+                this.showApiKeyMessage(provider, 'API key loaded successfully', 'success');
+
+            } else {
+                console.log(`⚠️ No API key found for ${provider}`);
+
+                // Clear stored key info
+                input.dataset.storedKey = '';
+                input.dataset.hasStoredKey = 'false';
+                input.classList.remove('has-stored-key');
+                input.placeholder = 'Enter your API key';
+
+                // Update status and message
+                this.updateApiKeyStatus(provider, false);
+                this.showApiKeyMessage(provider, 'No stored API key found', 'warning');
+            }
+
+        } catch (error) {
+            console.error(`❌ Error loading API key for ${provider}:`, error);
+            this.showApiKeyMessage(provider, 'Failed to load API key', 'error');
+        } finally {
+            // Reset load button
+            loadBtn.textContent = originalText;
+            loadBtn.disabled = false;
+        }
+    }
+
+    // Helper function to show API key messages
+    showApiKeyMessage(provider, message, type = 'info') {
+        const statusText = document.getElementById(`${provider}StatusText`);
+        if (statusText) {
+            const originalText = statusText.textContent;
+            statusText.textContent = message;
+
+            // Reset after 3 seconds
+            setTimeout(() => {
+                statusText.textContent = originalText;
+            }, 3000);
+        }
+
+        // Also show in main notification system for important messages
+        if (type === 'error' || type === 'success') {
+            this.showNotification(message, type);
+        }
+    }
+
+    // Setup API key button event listeners
+    setupApiKeyButtonListeners() {
+        // Load key buttons
+        document.getElementById('openaiLoadKeyBtn')?.addEventListener('click', () => {
+            this.loadStoredApiKey('openai');
+        });
+
+        document.getElementById('groqLoadKeyBtn')?.addEventListener('click', () => {
+            this.loadStoredApiKey('groq');
+        });
+
+        // Edit key buttons - now just make input editable
+        document.getElementById('openaiEditKeyBtn')?.addEventListener('click', async () => {
+            await this.makeInputEditable('openaiApiKey');
+        });
+
+        document.getElementById('groqEditKeyBtn')?.addEventListener('click', async () => {
+            await this.makeInputEditable('groqApiKey');
+        });
+
+        // Toggle visibility buttons
+        document.getElementById('openaiToggleBtn')?.addEventListener('click', async () => {
+            await this.toggleApiKeyVisibility('openaiApiKey');
+        });
+
+        document.getElementById('groqToggleBtn')?.addEventListener('click', async () => {
+            await this.toggleApiKeyVisibility('groqApiKey');
+        });
+    }
+
+    // Toggle API key visibility (instance method)
+    async toggleApiKeyVisibility(inputId) {
+        console.log(`🔄 Toggle called for: ${inputId}`);
+
+        const input = document.getElementById(inputId);
+        const provider = inputId.replace('ApiKey', '');
+        const button = document.getElementById(`${provider}ToggleBtn`); // Use ID instead of querySelector
+
+        if (!input) {
+            console.error(`❌ Input element not found: ${inputId}`);
+            return;
+        }
+
+        if (!button) {
+            console.error(`❌ Toggle button not found for: ${inputId}`);
+            return;
+        }
+
+        console.log(`📊 Current state - Type: ${input.type}, HasStoredKey: ${input.dataset.hasStoredKey}, Value: ${input.value ? '[PRESENT]' : '[EMPTY]'}, Readonly: ${input.hasAttribute('readonly')}`);
+
+        if (input.type === 'password') {
+            // Show mode: reveal the API key
+            console.log(`👁️ Switching to show mode for ${inputId}`);
+            input.type = 'text';
+            button.textContent = '🙈';
+            button.title = 'Hide API key';
+            button.classList.add('showing');
+
+            // If input is empty but we have a stored key, fetch and show it
+            if (!input.value && input.dataset.hasStoredKey === 'true') {
+                if (input.dataset.storedKey) {
+                    console.log(`🔑 Showing cached stored key for ${inputId}`);
+                    input.value = input.dataset.storedKey;
+                    input.dataset.showingStoredKey = 'true';
+                } else {
+                    // Fetch the stored key if we don't have it in memory
+                    console.log(`🔍 Fetching stored key for display...`);
+                    try {
+                        const key = await this.fetchStoredApiKey(provider);
+                        if (key && input.type === 'text') { // Check if still in text mode
+                            input.value = key;
+                            input.dataset.storedKey = key; // Cache it
+                            input.dataset.showingStoredKey = 'true';
+                            console.log(`🔓 Stored key displayed for ${provider}`);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error fetching stored API key for ${provider}:`, error);
+                        this.showApiKeyMessage(provider, 'Failed to load stored key', 'error');
+                    }
+                }
+            } else if (input.value) {
+                console.log(`📝 Showing existing value for ${inputId}`);
+            }
+        } else {
+            // Hide mode: mask the API key
+            console.log(`🙈 Switching to hide mode for ${inputId}`);
+            input.type = 'password';
+            button.textContent = '👁️';
+            button.title = 'Show API key';
+            button.classList.remove('showing');
+
+            // If showing a stored key, clear it and reset
+            if (input.dataset.showingStoredKey === 'true') {
+                console.log(`🧹 Clearing stored key from display for ${inputId}`);
+                input.value = '';
+                input.dataset.showingStoredKey = 'false';
+                input.placeholder = '••••••••••••••••••••';
+            }
+            // If user has entered a new key, preserve it in dataset AND keep the value
+            else if (input.value) {
+                console.log(`💾 Preserving user-entered key for ${inputId}`);
+                // Ensure userEnteredKey is set to current value
+                input.dataset.userEnteredKey = input.value;
+                console.log(`💾 userEnteredKey preserved as: "${input.dataset.userEnteredKey}"`);
+                // Keep the value in the input (password type will mask it)
+            }
+        }
+
+        console.log(`✅ Toggle complete for ${inputId} - New type: ${input.type}`);
+    }
+
+    // Helper method to fetch stored API key
+    async fetchStoredApiKey(provider) {
+        console.log(`🔍 Fetching stored API key for provider: ${provider}`);
+
+        try {
+            const response = await fetch(`http://localhost:5000/api/ai-settings/get-key`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ provider: provider })
+            });
+
+            console.log(`📡 API response status: ${response.status}`);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`📄 API response data:`, {
+                    success: result.success,
+                    hasApiKey: !!result.apiKey
+                });
+
+                if (result.success && result.apiKey) {
+                    console.log(`✅ Found stored key for ${provider}`);
+                    return result.apiKey;
+                } else {
+                    console.log(`⚠️ No API key found: ${result.error || 'Unknown error'}`);
+                }
+            } else {
+                console.error(`❌ API request failed with status: ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`❌ Network error fetching stored API key:`, error);
+        }
+
+        console.log(`❌ No stored key found for ${provider}`);
+        return null;
+    }
+
+    // Show notification message
     showNotification(message, type = 'info') {
         const notification = document.getElementById('notification');
         const notificationText = document.getElementById('notificationText');
 
-        notificationText.textContent = message;
-        notification.className = `notification ${type}`;
-        notification.style.display = 'flex';
+        if (notification && notificationText) {
+            // Set message and type
+            notificationText.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
 
-        // Auto-hide after 5 seconds
-        setTimeout(() => this.hideNotification(), 5000);
+            // Auto-hide after 5 seconds for success/info messages
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    this.hideNotification();
+                }, 5000);
+            }
+
+            console.log(`📢 Notification shown: [${type.toUpperCase()}] ${message}`);
+        } else {
+            console.error('❌ Notification elements not found in DOM');
+        }
     }
 
     // Hide notification
     hideNotification() {
-        document.getElementById('notification').style.display = 'none';
+        const notification = document.getElementById('notification');
+        if (notification) {
+            notification.style.display = 'none';
+            notification.className = 'notification';
+        }
     }
+
+    // Show loading state
+    showLoading(message = 'Loading...') {
+        // You can implement a loading spinner/overlay here if needed
+        console.log(`🔄 Loading: ${message}`);
+    }
+
+    // Hide loading state
+    hideLoading() {
+        // Hide loading spinner/overlay
+        console.log('✅ Loading complete');
+    }
+
+
 }
 
-// Global function for toggling API key visibility
-function toggleApiKeyVisibility(inputId) {
-    const input = document.getElementById(inputId);
-    const button = input.nextElementSibling;
-
-    if (input.type === 'password') {
-        input.type = 'text';
-        button.textContent = '🙈';
-    } else {
-        input.type = 'password';
-        button.textContent = '👁️';
-    }
-}
+// Global controller instance
+let optionsController;
 
 // Initialize options page when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new OptionsController();
+    optionsController = new OptionsController();
 });

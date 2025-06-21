@@ -336,14 +336,21 @@ def internal_error(error):
 def get_ai_settings():
     """Get current AI settings (without sensitive data)"""
     try:
+        if DEBUG:
+            print(f"🔄 GET /api/ai-settings called at {datetime.now()}")
+        
         ai_service = get_ai_settings_service()
         settings = ai_service.get_provider_settings()
+        
+        if DEBUG:
+            print(f"📤 Returning AI settings: {settings.get('provider', 'No provider')} provider")
         
         return jsonify({
             'success': True,
             'settings': settings
         })
     except Exception as e:
+        print(f"❌ Error in get_ai_settings: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/ai-settings', methods=['POST'])
@@ -388,6 +395,46 @@ def clear_ai_settings():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/ai-settings/key-status', methods=['GET'])
+def get_api_key_status():
+    """Get API key status for a provider"""
+    try:
+        provider = request.args.get('provider')
+        
+        if not provider:
+            return jsonify({'success': False, 'error': 'Provider parameter required'})
+        
+        if DEBUG:
+            print(f"🔍 Checking API key status for provider: {provider}")
+        
+        ai_service = get_ai_settings_service()
+        
+        # Check if API key exists for this provider
+        api_key = ai_service.get_api_key(provider)
+        has_key = api_key is not None and len(api_key) > 0
+        
+        # Generate key preview if key exists
+        key_preview = None
+        if has_key:
+            if len(api_key) > 8:
+                key_preview = api_key[:6] + '••••••••••••' + api_key[-4:]
+            else:
+                key_preview = '••••••••'
+        
+        if DEBUG:
+            print(f"📊 Key status for {provider}: hasKey={has_key}, preview={key_preview}")
+        
+        return jsonify({
+            'success': True,
+            'hasKey': has_key,
+            'keyPreview': key_preview,
+            'provider': provider
+        })
+        
+    except Exception as e:
+        print(f"❌ Error checking API key status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/test-ai', methods=['POST'])
 def test_ai_connection():
     """Test AI provider connection"""
@@ -409,6 +456,39 @@ def test_ai_connection():
         return jsonify(result)
         
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/ai-settings/get-key', methods=['POST'])
+def get_api_key_for_display():
+    """Get full API key for display purposes (when user explicitly requests to show it)"""
+    try:
+        data = request.get_json()
+        provider = data.get('provider')
+        
+        if not provider:
+            return jsonify({'success': False, 'error': 'Provider parameter required'})
+        
+        if DEBUG:
+            print(f"🔓 Getting full API key for display - provider: {provider}")
+        
+        ai_service = get_ai_settings_service()
+        
+        # Get the full API key for this provider
+        api_key = ai_service.get_api_key(provider)
+        
+        if api_key:
+            return jsonify({
+                'success': True,
+                'apiKey': api_key
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No API key found for this provider'
+            })
+    
+    except Exception as e:
+        print(f"❌ Error getting API key for display: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
 # ==================== MAIN APPLICATION ====================
@@ -449,6 +529,8 @@ if __name__ == '__main__':
     print(f"   - GET/POST /api/user-profile - Manage user profile")
     print(f"   - POST /api/test-email - Test email configuration")
     print(f"   - GET/POST/DELETE /api/ai-settings - Manage AI settings")
+    print(f"   - GET /api/ai-settings/key-status - Check API key status")
+    print(f"   - POST /api/ai-settings/get-key - Get API key for display")
     print(f"   - POST /api/test-ai - Test AI connection")
     
     app.run(host='0.0.0.0', port=port, debug=debug)

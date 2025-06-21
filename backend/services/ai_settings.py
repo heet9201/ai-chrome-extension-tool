@@ -7,7 +7,6 @@ import os
 import json
 from typing import Dict, Any, Optional
 from datetime import datetime
-from utils.crypto import encrypt_api_key, decrypt_api_key, validate_api_key_format
 
 
 class AISettingsService:
@@ -37,9 +36,19 @@ class AISettingsService:
     def load_settings(self) -> Dict[str, Any]:
         """Load AI settings from file"""
         try:
-            if os.path.exists(self.settings_file):
-                with open(self.settings_file, 'r') as f:
-                    return json.load(f)
+            if not os.path.exists(self.settings_file):
+                return {}
+                
+            with open(self.settings_file, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    return {}
+                return json.loads(content)
+                
+        except json.JSONDecodeError as e:
+            print(f"Error parsing AI settings JSON: {str(e)}")
+            return {}
+        except FileNotFoundError:
             return {}
         except Exception as e:
             print(f"Error loading AI settings: {str(e)}")
@@ -58,6 +67,9 @@ class AISettingsService:
             Dictionary with success status and error message if any
         """
         try:
+            # Import crypto functions here to avoid circular imports
+            from utils.crypto import encrypt_api_key, validate_api_key_format
+            
             # Validate API key format
             if not validate_api_key_format(provider, api_key):
                 return {
@@ -94,6 +106,11 @@ class AISettingsService:
                     'error': 'Failed to save settings to file'
                 }
                 
+        except ImportError as e:
+            return {
+                'success': False,
+                'error': f'Error importing crypto module: {str(e)}'
+            }
         except Exception as e:
             return {
                 'success': False,
@@ -112,15 +129,29 @@ class AISettingsService:
         """
         try:
             settings = self.load_settings()
+            if not settings:
+                return None
+                
             provider_settings = settings.get(provider, {})
+            if not provider_settings:
+                return None
             
             encrypted_key = provider_settings.get('encrypted_api_key')
-            if encrypted_key:
-                return decrypt_api_key(encrypted_key)
+            if not encrypted_key:
+                return None
+                
+            # Import crypto here to avoid circular imports
+            from utils.crypto import decrypt_api_key
+            return decrypt_api_key(encrypted_key)
             
+        except ImportError as e:
+            print(f"Error importing crypto module: {str(e)}")
+            return None
+        except ValueError as e:
+            print(f"Error decrypting API key for {provider}: {str(e)}")
             return None
         except Exception as e:
-            print(f"Error retrieving API key: {str(e)}")
+            print(f"Error retrieving API key for {provider}: {str(e)}")
             return None
     
     def get_provider_settings(self, provider: str = None) -> Dict[str, Any]:
@@ -160,14 +191,18 @@ class AISettingsService:
         """
         try:
             settings = self.load_settings()
+            if not settings:
+                return {}
+                
             active_provider = settings.get('active_provider')
-            
             if not active_provider:
                 return {}
             
             provider_settings = settings.get(active_provider, {})
+            if not provider_settings:
+                return {}
+                
             api_key = self.get_api_key(active_provider)
-            
             if not api_key:
                 return {}
             
@@ -178,7 +213,7 @@ class AISettingsService:
             
             # Add other settings
             for key, value in provider_settings.items():
-                if key != 'encrypted_api_key':
+                if key not in ['encrypted_api_key', 'last_updated']:
                     config[key] = value
             
             return config
@@ -256,6 +291,50 @@ class AISettingsService:
             return {
                 'success': False,
                 'error': f'Connection test failed: {str(e)}'
+            }
+
+    def debug_settings(self) -> Dict[str, Any]:
+        """
+        Get debugging information about current settings
+        
+        Returns:
+            Dictionary with debugging information
+        """
+        try:
+            settings = self.load_settings()
+            
+            debug_info = {
+                'settings_file_exists': os.path.exists(self.settings_file),
+                'settings_file_path': self.settings_file,
+                'total_providers': len([k for k in settings.keys() if k not in ['active_provider', 'last_updated']]),
+                'active_provider': settings.get('active_provider'),
+                'providers': []
+            }
+            
+            for provider in ['openai', 'groq']:
+                if provider in settings:
+                    provider_info = {
+                        'name': provider,
+                        'has_encrypted_key': 'encrypted_api_key' in settings[provider],
+                        'last_updated': settings[provider].get('last_updated'),
+                        'can_decrypt': False
+                    }
+                    
+                    # Test if we can decrypt the key
+                    try:
+                        api_key = self.get_api_key(provider)
+                        provider_info['can_decrypt'] = api_key is not None
+                        provider_info['key_preview'] = api_key[:10] + '...' if api_key else None
+                    except:
+                        provider_info['can_decrypt'] = False
+                    
+                    debug_info['providers'].append(provider_info)
+            
+            return debug_info
+            
+        except Exception as e:
+            return {
+                'error': f'Failed to get debug info: {str(e)}'
             }
 
 

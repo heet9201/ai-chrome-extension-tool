@@ -235,7 +235,7 @@
             <h2>AI Provider Configuration</h2>
             <p class="section-description">
               Configure your preferred AI provider for job analysis and email
-              generation
+              generation. Your API keys are encrypted and stored securely.
             </p>
 
             <div class="form-group">
@@ -250,50 +250,114 @@
             <div class="form-group" id="openaiKeyGroup" style="display: none">
               <label for="openaiApiKey">OpenAI API Key *</label>
               <div class="api-key-input">
-                <input
-                  type="password"
-                  id="openaiApiKey"
-                  placeholder="sk-..."
-                  autocomplete="new-password"
-                />
-                <button
-                  type="button"
-                  class="toggle-password"
-                  onclick="toggleApiKeyVisibility('openaiApiKey')"
-                >
-                  👁️
-                </button>
+                <div class="input-container">
+                  <input
+                    type="password"
+                    id="openaiApiKey"
+                    placeholder="Enter your API key or load stored key"
+                    autocomplete="new-password"
+                    readonly
+                  />
+                  <div class="input-actions">
+                    <button
+                      type="button"
+                      class="load-key-btn"
+                      id="openaiLoadKeyBtn"
+                      title="Load stored API key"
+                    >
+                      📥
+                    </button>
+                    <button
+                      type="button"
+                      class="edit-key-btn"
+                      id="openaiEditKeyBtn"
+                      title="Edit API key"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      class="toggle-password"
+                      id="openaiToggleBtn"
+                      title="Toggle visibility"
+                    >
+                      👁️
+                    </button>
+                  </div>
+                </div>
+                <div class="api-key-status not-stored" id="openaiKeyStatus">
+                  <span
+                    class="status-indicator not-stored"
+                    id="openaiStatusIndicator"
+                  ></span>
+                  <span class="status-text" id="openaiStatusText"
+                    >No API key stored</span
+                  >
+                </div>
               </div>
               <small class="help-text">
                 Get your API key from
                 <a href="https://platform.openai.com/api-keys" target="_blank"
                   >OpenAI Platform</a
-                >
+                >. <strong>Use:</strong> 📥 to load stored key, ✏️ to edit, 👁️
+                to show/hide.
               </small>
             </div>
 
             <div class="form-group" id="groqKeyGroup" style="display: none">
               <label for="groqApiKey">Groq API Key *</label>
               <div class="api-key-input">
-                <input
-                  type="password"
-                  id="groqApiKey"
-                  placeholder="gsk_..."
-                  autocomplete="new-password"
-                />
-                <button
-                  type="button"
-                  class="toggle-password"
-                  onclick="toggleApiKeyVisibility('groqApiKey')"
-                >
-                  👁️
-                </button>
+                <div class="input-container">
+                  <input
+                    type="password"
+                    id="groqApiKey"
+                    placeholder="Enter your API key or load stored key"
+                    autocomplete="new-password"
+                    readonly
+                  />
+                  <div class="input-actions">
+                    <button
+                      type="button"
+                      class="load-key-btn"
+                      id="groqLoadKeyBtn"
+                      title="Load stored API key"
+                    >
+                      📥
+                    </button>
+                    <button
+                      type="button"
+                      class="edit-key-btn"
+                      id="groqEditKeyBtn"
+                      title="Edit API key"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      class="toggle-password"
+                      id="groqToggleBtn"
+                      title="Toggle visibility"
+                    >
+                      👁️
+                    </button>
+                  </div>
+                </div>
+                <div class="api-key-status not-stored" id="groqKeyStatus">
+                  <span
+                    class="status-indicator not-stored"
+                    id="groqStatusIndicator"
+                  ></span>
+                  <span class="status-text" id="groqStatusText"
+                    >No API key stored</span
+                  >
+                </div>
               </div>
               <small class="help-text">
                 Get your API key from
                 <a href="https://console.groq.com/keys" target="_blank"
                   >Groq Console</a
-                >
+                >. <strong>Use:</strong> 📥 to load stored key, ✏️ to edit, 👁️
+                to show/hide.
               </small>
             </div>
 
