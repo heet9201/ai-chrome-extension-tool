@@ -26,6 +26,9 @@
           <button class="tab-button" data-tab="preferences">
             ⚙️ Preferences
           </button>
+          <button class="tab-button" data-tab="ai-settings">
+            🤖 AI Settings
+          </button>
           <button class="tab-button" data-tab="email">✉️ Email</button>
           <button class="tab-button" data-tab="about">ℹ️ About</button>
         </div>
@@ -221,6 +224,176 @@
                 <label class="checkbox-item">
                   <input type="checkbox" value="MNCs" /> MNCs
                 </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Settings Tab -->
+        <div id="ai-settings" class="tab-content">
+          <div class="section">
+            <h2>AI Provider Configuration</h2>
+            <p class="section-description">
+              Configure your preferred AI provider for job analysis and email
+              generation
+            </p>
+
+            <div class="form-group">
+              <label for="aiProvider">AI Provider *</label>
+              <select id="aiProvider" required>
+                <option value="">Select AI Provider</option>
+                <option value="openai">OpenAI (GPT-4)</option>
+                <option value="groq">Groq (Llama)</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="openaiKeyGroup" style="display: none">
+              <label for="openaiApiKey">OpenAI API Key *</label>
+              <div class="api-key-input">
+                <input
+                  type="password"
+                  id="openaiApiKey"
+                  placeholder="sk-..."
+                  autocomplete="new-password"
+                />
+                <button
+                  type="button"
+                  class="toggle-password"
+                  onclick="toggleApiKeyVisibility('openaiApiKey')"
+                >
+                  👁️
+                </button>
+              </div>
+              <small class="help-text">
+                Get your API key from
+                <a href="https://platform.openai.com/api-keys" target="_blank"
+                  >OpenAI Platform</a
+                >
+              </small>
+            </div>
+
+            <div class="form-group" id="groqKeyGroup" style="display: none">
+              <label for="groqApiKey">Groq API Key *</label>
+              <div class="api-key-input">
+                <input
+                  type="password"
+                  id="groqApiKey"
+                  placeholder="gsk_..."
+                  autocomplete="new-password"
+                />
+                <button
+                  type="button"
+                  class="toggle-password"
+                  onclick="toggleApiKeyVisibility('groqApiKey')"
+                >
+                  👁️
+                </button>
+              </div>
+              <small class="help-text">
+                Get your API key from
+                <a href="https://console.groq.com/keys" target="_blank"
+                  >Groq Console</a
+                >
+              </small>
+            </div>
+
+            <div class="form-group">
+              <button
+                type="button"
+                id="testAiBtn"
+                class="btn btn-outline"
+                disabled
+              >
+                🧪 Test AI Connection
+              </button>
+              <button
+                type="button"
+                id="saveAiBtn"
+                class="btn btn-primary"
+                disabled
+              >
+                💾 Save AI Settings
+              </button>
+            </div>
+
+            <div
+              id="aiTestResult"
+              class="test-result"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="section">
+            <h2>AI Model Settings</h2>
+            <p class="section-description">
+              Advanced configuration for AI model parameters
+            </p>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="temperature">Temperature</label>
+                <input
+                  type="range"
+                  id="temperature"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value="0.7"
+                />
+                <span class="range-value" id="temperatureValue">0.7</span>
+              </div>
+              <div class="form-group">
+                <label for="maxTokens">Max Tokens</label>
+                <input
+                  type="number"
+                  id="maxTokens"
+                  min="100"
+                  max="4000"
+                  value="1500"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="enableAiOptimizations" checked />
+                Enable AI optimizations for better responses
+              </label>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Security & Privacy</h2>
+            <div class="security-info">
+              <div class="security-item">
+                <span class="security-icon">🔒</span>
+                <div>
+                  <strong>Encrypted Storage</strong>
+                  <p>
+                    API keys are encrypted using AES-256 encryption before
+                    storage
+                  </p>
+                </div>
+              </div>
+              <div class="security-item">
+                <span class="security-icon">🛡️</span>
+                <div>
+                  <strong>Local Processing</strong>
+                  <p>Keys are only transmitted to your selected AI provider</p>
+                </div>
+              </div>
+              <div class="security-item">
+                <span class="security-icon">🗑️</span>
+                <div>
+                  <strong>Easy Removal</strong>
+                  <button
+                    type="button"
+                    id="clearAiKeys"
+                    class="btn btn-danger-outline"
+                  >
+                    Clear All API Keys
+                  </button>
+                </div>
               </div>
             </div>
           </div>

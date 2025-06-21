@@ -15,19 +15,18 @@ from typing import Dict, Any, Optional
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from dotenv import load_dotenv
 
-# Import our AI agent
+# Import our utilities and services
+from utils.env_manager import getenv, getenv_int, getenv_bool, get_env_manager
 from services.ai_agent import analyze_job_post
-
-# Load environment variables
-load_dotenv()
+from services.ai_settings import get_ai_settings_service
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Chrome extension
 
-# Configuration
+# Configuration from environment
+DEBUG = getenv_bool('DEBUG', False)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
@@ -38,10 +37,10 @@ class EmailService:
     """Service for sending emails"""
     
     def __init__(self):
-        self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        self.email = os.getenv('EMAIL_ADDRESS')
-        self.password = os.getenv('EMAIL_PASSWORD')
+        self.smtp_server = getenv('SMTP_SERVER', 'smtp.gmail.com')
+        self.smtp_port = getenv_int('SMTP_PORT', 587)
+        self.email = getenv('EMAIL_ADDRESS')
+        self.password = getenv('EMAIL_PASSWORD')
         
     def send_email(self, to_email: str, subject: str, body: str, attachment_path: Optional[str] = None) -> Dict[str, Any]:
         """Send email with optional attachment"""
@@ -97,6 +96,12 @@ class EmailService:
 # Initialize services
 email_service = EmailService()
 
+# Debug information
+if DEBUG:
+    print(f"🔧 Debug mode enabled")
+    print(f"📁 Environment loaded from: {getenv('ENV_FILE_PATH', 'system environment')}")
+    print(f"🌐 CORS enabled for Chrome extension")
+
 @app.route('/')
 def home():
     """Health check endpoint"""
@@ -123,19 +128,26 @@ def analyze_job():
         if not job_data:
             return jsonify({'error': 'Job data is required'}), 400
         
-        # Analyze job using AI agent
-        result = analyze_job_post(job_data, user_profile)
+        # Get AI settings for analysis
+        ai_service = get_ai_settings_service()
+        ai_settings = ai_service.get_active_provider_config()
+        
+        # Analyze job using AI agent with stored settings
+        result = analyze_job_post(job_data, user_profile, ai_settings)
         
         # Log analysis for debugging
-        app.logger.info(f"Job analysis completed: {result['status']} for job: {job_data.get('title', 'Unknown')}")
+        if DEBUG:
+            app.logger.info(f"Job analysis completed: {result['status']} for job: {job_data.get('title', 'Unknown')}")
         
         return jsonify(result)
         
     except Exception as e:
-        app.logger.error(f"Error in job analysis: {str(e)}")
+        error_msg = f"Error in job analysis: {str(e)}"
+        app.logger.error(error_msg)
+        
         return jsonify({
             'error': 'Internal server error during job analysis',
-            'details': str(e) if app.debug else None
+            'details': str(e) if DEBUG else None
         }), 500
 
 @app.route('/api/send-email', methods=['POST'])
@@ -287,7 +299,7 @@ def test_email():
     
     try:
         data = request.get_json()
-        test_email = data.get('email', os.getenv('EMAIL_ADDRESS'))
+        test_email = data.get('email', getenv('EMAIL_ADDRESS'))
         
         if not test_email:
             return jsonify({'error': 'Test email address required'}), 400
@@ -318,9 +330,92 @@ def internal_error(error):
     """Handle 500 errors"""
     return jsonify({'error': 'Internal server error'}), 500
 
+# ==================== AI SETTINGS ENDPOINTS ====================
+
+@app.route('/api/ai-settings', methods=['GET'])
+def get_ai_settings():
+    """Get current AI settings (without sensitive data)"""
+    try:
+        ai_service = get_ai_settings_service()
+        settings = ai_service.get_provider_settings()
+        
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/ai-settings', methods=['POST'])
+def save_ai_settings():
+    """Save AI provider settings"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        provider = data.get('provider')
+        api_key = data.get('api_key')
+        
+        if not provider or not api_key:
+            return jsonify({'success': False, 'error': 'Provider and API key are required'})
+        
+        # Additional settings
+        additional_settings = {
+            'temperature': data.get('temperature', 0.7),
+            'max_tokens': data.get('max_tokens', 1500),
+            'enable_optimizations': data.get('enable_optimizations', True)
+        }
+        
+        ai_service = get_ai_settings_service()
+        result = ai_service.store_api_key(provider, api_key, additional_settings)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/ai-settings', methods=['DELETE'])
+def clear_ai_settings():
+    """Clear all AI settings"""
+    try:
+        ai_service = get_ai_settings_service()
+        result = ai_service.clear_provider_settings()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/test-ai', methods=['POST'])
+def test_ai_connection():
+    """Test AI provider connection"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        provider = data.get('provider')
+        api_key = data.get('api_key')
+        
+        if not provider or not api_key:
+            return jsonify({'success': False, 'error': 'Provider and API key are required'})
+        
+        ai_service = get_ai_settings_service()
+        result = ai_service.test_provider_connection(provider, api_key)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# ==================== MAIN APPLICATION ====================
+
 if __name__ == '__main__':
     # Set up logging
-    if not app.debug:
+    if not DEBUG:
         import logging
         from logging.handlers import RotatingFileHandler
         
@@ -337,15 +432,23 @@ if __name__ == '__main__':
     os.makedirs('logs', exist_ok=True)
     
     # Run the app
-    port = int(os.getenv('PORT', 5000))
-    debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    port = getenv_int('PORT', 5000)
+    debug = getenv_bool('DEBUG', False)  # Use single DEBUG variable for both app and Flask debug
     
     print(f"🚀 LinkedIn Job Assistant API starting on port {port}")
+    if DEBUG:
+        print(f"🔧 Debug mode: {DEBUG}")
+        env_manager = get_env_manager()
+        if env_manager.get_env_file_path():
+            print(f"📁 Environment loaded from: {env_manager.get_env_file_path()}")
+        
     print(f"🔗 Available endpoints:")
     print(f"   - POST /api/analyze-job - Analyze job posts")
     print(f"   - POST /api/send-email - Send application emails")
     print(f"   - POST /api/upload-resume - Upload resume files")
     print(f"   - GET/POST /api/user-profile - Manage user profile")
     print(f"   - POST /api/test-email - Test email configuration")
+    print(f"   - GET/POST/DELETE /api/ai-settings - Manage AI settings")
+    print(f"   - POST /api/test-ai - Test AI connection")
     
     app.run(host='0.0.0.0', port=port, debug=debug)

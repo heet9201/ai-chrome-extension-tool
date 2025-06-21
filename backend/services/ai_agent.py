@@ -10,11 +10,20 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 
+# Import environment utilities
+from utils.env_manager import getenv
+
 try:
     import openai
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
 
 @dataclass
 class UserProfile:
@@ -47,18 +56,75 @@ class JobData:
 class JobAnalysisAgent:
     """AI Agent for analyzing job posts and generating application emails"""
     
-    def __init__(self):
-        self.openai_client = None
-        self.setup_ai_client()
+    def __init__(self, provider: str = None, api_key: str = None, **kwargs):
+        self.provider = provider or getenv('AI_PROVIDER', 'openai')
+        self.api_key = api_key
+        self.temperature = kwargs.get('temperature', 0.7)
+        self.max_tokens = kwargs.get('max_tokens', 1500)
+        self.enable_optimizations = kwargs.get('enable_optimizations', True)
+        
+        self.ai_client = None
+        if api_key:
+            self.setup_ai_client()
         
     def setup_ai_client(self):
-        """Setup OpenAI client if API key is available"""
-        api_key = os.getenv('OPENAI_API_KEY')
-        if api_key and OPENAI_AVAILABLE:
-            openai.api_key = api_key
-            self.openai_client = openai
-        else:
-            print("Warning: OpenAI not available. Using fallback analysis.")
+        """Setup AI client based on provider"""
+        try:
+            if self.provider == 'openai' and OPENAI_AVAILABLE:
+                from openai import OpenAI
+                self.ai_client = OpenAI(api_key=self.api_key)
+            elif self.provider == 'groq' and GROQ_AVAILABLE:
+                self.ai_client = Groq(api_key=self.api_key)
+            else:
+                print(f"Warning: {self.provider} not available or not supported.")
+        except Exception as e:
+            print(f"Error setting up AI client: {str(e)}")
+            self.ai_client = None
+    
+    def test_connection(self) -> dict:
+        """Test the AI connection and return status"""
+        if not self.ai_client:
+            # Try to setup the client if we have the api_key
+            if self.api_key:
+                self.setup_ai_client()
+            
+            if not self.ai_client:
+                return {
+                    'success': False,
+                    'error': f'{self.provider} client not initialized'
+                }
+        
+        try:
+            if self.provider == 'openai':
+                # Test with a simple completion
+                response = self.ai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": "Hello"}],
+                    max_tokens=5
+                )
+                return {
+                    'success': True,
+                    'model': 'gpt-3.5-turbo',
+                    'response': response.choices[0].message.content.strip()
+                }
+            elif self.provider == 'groq':
+                # Test with a simple completion
+                response = self.ai_client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[{"role": "user", "content": "Hello"}],
+                    max_tokens=5
+                )
+                return {
+                    'success': True,
+                    'model': 'llama3-8b-8192',
+                    'response': response.choices[0].message.content.strip()
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
     def analyze_job(self, job_data: dict, user_profile: dict) -> dict:
         """
@@ -77,7 +143,7 @@ class JobAnalysisAgent:
             profile = self._parse_user_profile(user_profile)
             
             # Use AI if available, otherwise use rule-based analysis
-            if self.openai_client:
+            if self.ai_client:
                 return self._ai_analysis(job, profile)
             else:
                 return self._rule_based_analysis(job, profile)
@@ -123,7 +189,7 @@ class JobAnalysisAgent:
         )
     
     def _ai_analysis(self, job: JobData, profile: UserProfile) -> dict:
-        """AI-powered job analysis using OpenAI"""
+        """AI-powered job analysis using configured provider"""
         try:
             # Prepare job content for analysis
             job_content = self._extract_job_content(job)
@@ -131,25 +197,45 @@ class JobAnalysisAgent:
             # Create prompt for AI analysis
             prompt = self._create_analysis_prompt(job_content, profile)
             
-            # Call OpenAI API
-            response = self.openai_client.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a smart AI agent that helps automate job applications. Analyze job posts and return JSON responses as specified."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=1000,
-                temperature=0.7
-            )
+            # Call AI API based on provider
+            if self.provider == 'openai':
+                response = self.ai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a smart AI agent that helps automate job applications. Analyze job posts and return JSON responses as specified."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature
+                )
+                ai_response = response.choices[0].message.content.strip()
+                
+            elif self.provider == 'groq':
+                response = self.ai_client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a smart AI agent that helps automate job applications. Analyze job posts and return JSON responses as specified."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature
+                )
+                ai_response = response.choices[0].message.content.strip()
             
-            # Parse AI response
-            ai_response = response.choices[0].message.content.strip()
+            else:
+                raise ValueError(f"Unsupported AI provider: {self.provider}")
             
             # Try to extract JSON from response
             try:
@@ -396,16 +482,28 @@ Keep the email professional, concise, and personalized. Don't exaggerate skills 
         }
 
 # Convenience function for external use
-def analyze_job_post(job_data: dict, user_profile: dict) -> dict:
+def analyze_job_post(job_data: dict, user_profile: dict, ai_settings: dict = None) -> dict:
     """
     Convenience function to analyze a job post
     
     Args:
         job_data: Dictionary containing job post information
         user_profile: Dictionary containing user profile information
+        ai_settings: Dictionary containing AI configuration (provider, api_key, etc.)
         
     Returns:
         Dictionary containing analysis results
     """
-    agent = JobAnalysisAgent()
+    if ai_settings:
+        agent = JobAnalysisAgent(
+            provider=ai_settings.get('provider'),
+            api_key=ai_settings.get('api_key'),
+            temperature=ai_settings.get('temperature', 0.7),
+            max_tokens=ai_settings.get('max_tokens', 1500),
+            enable_optimizations=ai_settings.get('enable_optimizations', True)
+        )
+    else:
+        # Fallback to environment variables or default settings
+        agent = JobAnalysisAgent()
+    
     return agent.analyze_job(job_data, user_profile)

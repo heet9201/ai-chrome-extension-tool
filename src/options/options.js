@@ -10,6 +10,7 @@ class OptionsController {
         this.setupTabs();
         this.setupFileUpload();
         await this.loadUserProfile();
+        await this.loadAiSettings();
         this.populateForm();
         this.updateLastUpdated();
     }
@@ -29,6 +30,13 @@ class OptionsController {
         // Email actions
         document.getElementById('testEmailBtn').addEventListener('click', () => this.testEmail());
         document.getElementById('saveEmailBtn').addEventListener('click', () => this.saveEmailSettings());
+
+        // AI Settings actions
+        document.getElementById('aiProvider').addEventListener('change', (e) => this.handleAiProviderChange(e.target.value));
+        document.getElementById('testAiBtn').addEventListener('click', () => this.testAiConnection());
+        document.getElementById('saveAiBtn').addEventListener('click', () => this.saveAiSettings());
+        document.getElementById('clearAiKeys').addEventListener('click', () => this.clearAiKeys());
+        document.getElementById('temperature').addEventListener('input', (e) => this.updateTemperatureValue(e.target.value));
 
         // Notification close
         document.getElementById('notificationClose').addEventListener('click', () => this.hideNotification());
@@ -465,6 +473,237 @@ class OptionsController {
         }
     }
 
+    // ==================== AI SETTINGS METHODS ====================
+
+    // Handle AI provider selection change
+    handleAiProviderChange(provider) {
+        const openaiGroup = document.getElementById('openaiKeyGroup');
+        const groqGroup = document.getElementById('groqKeyGroup');
+        const testBtn = document.getElementById('testAiBtn');
+        const saveBtn = document.getElementById('saveAiBtn');
+
+        // Hide all API key groups
+        openaiGroup.style.display = 'none';
+        groqGroup.style.display = 'none';
+
+        // Show relevant API key group
+        if (provider === 'openai') {
+            openaiGroup.style.display = 'block';
+        } else if (provider === 'groq') {
+            groqGroup.style.display = 'block';
+        }
+
+        // Enable/disable buttons based on selection
+        const hasProvider = provider !== '';
+        testBtn.disabled = !hasProvider;
+        saveBtn.disabled = !hasProvider;
+
+        // Load existing API key if available
+        this.loadAiSettings();
+    }
+
+    // Update temperature slider value display
+    updateTemperatureValue(value) {
+        document.getElementById('temperatureValue').textContent = value;
+    }
+
+    // Test AI connection
+    async testAiConnection() {
+        const provider = document.getElementById('aiProvider').value;
+        const testResult = document.getElementById('aiTestResult');
+
+        if (!provider) {
+            this.showNotification('Please select an AI provider first', 'error');
+            return;
+        }
+
+        let apiKey = '';
+        if (provider === 'openai') {
+            apiKey = document.getElementById('openaiApiKey').value;
+        } else if (provider === 'groq') {
+            apiKey = document.getElementById('groqApiKey').value;
+        }
+
+        if (!apiKey) {
+            this.showNotification('Please enter an API key first', 'error');
+            return;
+        }
+
+        // Show loading state
+        testResult.style.display = 'block';
+        testResult.className = 'test-result loading';
+        testResult.innerHTML = '🔄 Testing AI connection...';
+
+        try {
+            const response = await fetch('http://localhost:5000/api/test-ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    provider: provider,
+                    api_key: apiKey
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                testResult.className = 'test-result success';
+                testResult.innerHTML = `✅ Connection successful! Model: ${result.model || 'N/A'}`;
+                this.showNotification('AI connection test successful!', 'success');
+            } else {
+                testResult.className = 'test-result error';
+                testResult.innerHTML = `❌ Connection failed: ${result.error || 'Unknown error'}`;
+                this.showNotification('AI connection test failed', 'error');
+            }
+        } catch (error) {
+            console.error('AI test error:', error);
+            testResult.className = 'test-result error';
+            testResult.innerHTML = `❌ Connection failed: ${error.message}`;
+            this.showNotification('AI connection test failed', 'error');
+        }
+    }
+
+    // Save AI settings
+    async saveAiSettings() {
+        const provider = document.getElementById('aiProvider').value;
+
+        if (!provider) {
+            this.showNotification('Please select an AI provider', 'error');
+            return;
+        }
+
+        let apiKey = '';
+        if (provider === 'openai') {
+            apiKey = document.getElementById('openaiApiKey').value;
+        } else if (provider === 'groq') {
+            apiKey = document.getElementById('groqApiKey').value;
+        }
+
+        if (!apiKey) {
+            this.showNotification('Please enter an API key', 'error');
+            return;
+        }
+
+        const aiSettings = {
+            provider: provider,
+            api_key: apiKey,
+            temperature: parseFloat(document.getElementById('temperature').value),
+            max_tokens: parseInt(document.getElementById('maxTokens').value),
+            enable_optimizations: document.getElementById('enableAiOptimizations').checked
+        };
+
+        this.showLoading('Saving AI settings...');
+
+        try {
+            const response = await fetch('http://localhost:5000/api/ai-settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(aiSettings)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                this.showNotification('AI settings saved successfully!', 'success');
+                this.markAsSaved();
+            } else {
+                this.showNotification(`Failed to save AI settings: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Save AI settings error:', error);
+            this.showNotification('Failed to save AI settings', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // Load AI settings
+    async loadAiSettings() {
+        try {
+            const response = await fetch('http://localhost:5000/api/ai-settings');
+
+            if (response.ok) {
+                const result = await response.json();
+
+                if (result.success && result.settings) {
+                    const settings = result.settings;
+
+                    // Set provider
+                    if (settings.provider) {
+                        document.getElementById('aiProvider').value = settings.provider;
+                        this.handleAiProviderChange(settings.provider);
+                    }
+
+                    // Set model parameters
+                    if (settings.temperature !== undefined) {
+                        const tempSlider = document.getElementById('temperature');
+                        tempSlider.value = settings.temperature;
+                        this.updateTemperatureValue(settings.temperature);
+                    }
+
+                    if (settings.max_tokens !== undefined) {
+                        document.getElementById('maxTokens').value = settings.max_tokens;
+                    }
+
+                    if (settings.enable_optimizations !== undefined) {
+                        document.getElementById('enableAiOptimizations').checked = settings.enable_optimizations;
+                    }
+
+                    // Enable buttons if provider is set
+                    if (settings.provider) {
+                        document.getElementById('testAiBtn').disabled = false;
+                        document.getElementById('saveAiBtn').disabled = false;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Load AI settings error:', error);
+        }
+    }
+
+    // Clear all AI keys
+    async clearAiKeys() {
+        if (!confirm('Are you sure you want to clear all AI API keys? This action cannot be undone.')) {
+            return;
+        }
+
+        this.showLoading('Clearing AI keys...');
+
+        try {
+            const response = await fetch('http://localhost:5000/api/ai-settings', {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Clear form
+                document.getElementById('aiProvider').value = '';
+                document.getElementById('openaiApiKey').value = '';
+                document.getElementById('groqApiKey').value = '';
+                this.handleAiProviderChange('');
+
+                // Hide test result
+                document.getElementById('aiTestResult').style.display = 'none';
+
+                this.showNotification('AI keys cleared successfully', 'success');
+            } else {
+                this.showNotification(`Failed to clear AI keys: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Clear AI keys error:', error);
+            this.showNotification('Failed to clear AI keys', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    // ==================== UTILITY METHODS ====================
+
     // Show loading overlay
     showLoading(text = 'Loading...') {
         document.getElementById('loadingText').textContent = text;
@@ -492,6 +731,20 @@ class OptionsController {
     // Hide notification
     hideNotification() {
         document.getElementById('notification').style.display = 'none';
+    }
+}
+
+// Global function for toggling API key visibility
+function toggleApiKeyVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    const button = input.nextElementSibling;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        button.textContent = '🙈';
+    } else {
+        input.type = 'password';
+        button.textContent = '👁️';
     }
 }
 

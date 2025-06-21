@@ -204,3 +204,15 @@ node_modules/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Upload files
+uploads/
+
+# AI settings
+ai_settings.json
+
+# Markdown files (except README)
+*.md
+!README.md
+!readme.md
+!Readme.md
