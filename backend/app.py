@@ -70,8 +70,13 @@ DEBUG = getenv_bool('DEBUG', False)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
-# Ensure upload directory exists
+# Ensure required directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs('logs', exist_ok=True)
+
+# Set up logging for production
+if not DEBUG:
+    setup_logging()
 
 class EmailService:
     """Service for sending emails"""
@@ -534,18 +539,6 @@ def get_api_key_for_display():
 # ==================== MAIN APPLICATION ====================
 
 if __name__ == '__main__':
-    # Set up logging for production
-    if not DEBUG:
-        logging_success = setup_logging()
-        if logging_success:
-            app.logger.info('File logging enabled')
-        else:
-            print('Running with console logging only')
-    
-    # Run the app
-    # Create logs directory
-    os.makedirs('logs', exist_ok=True)
-    
     # Run the app
     port = getenv_int('PORT', 5000)
     debug = getenv_bool('DEBUG', False)  # Use single DEBUG variable for both app and Flask debug
