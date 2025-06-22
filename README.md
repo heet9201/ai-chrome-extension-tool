@@ -176,7 +176,7 @@ Configure your profile in the extension settings:
 
 ```javascript
 {
-  "name": "Heet Dedakiya",
+  "name": "Your Name",
   "experience": 1,
   "domain": "Python Backend Development + AI/ML",
   "skills": ["Python", "Flask", "FastAPI", "TensorFlow"],
@@ -219,7 +219,7 @@ For automatic email sending, you'll need:
    ```
    SMTP_SERVER=smtp.gmail.com
    SMTP_PORT=587
-   EMAIL_ADDRESS=heet.dedakiya@gmail.com
+   EMAIL_ADDRESS=mail.example@gmail.com
    EMAIL_PASSWORD=your_app_password
    DEBUG=true
    ```
@@ -264,7 +264,7 @@ Generates personalized emails that:
 ### Example Generated Email
 
 ```
-Subject: Application for AI/ML Developer Role - Heet Dedakiya
+Subject: Application for AI/ML Developer Role - Your Name
 
 Dear Hiring Team,
 
@@ -284,8 +284,8 @@ and implementing innovative ML solutions.
 Please find my resume attached for your review.
 
 Best regards,
-Heet Dedakiya
-heet.dedakiya@gmail.com
+Your Name
+mail.example@gmail.com
 +91-XXXXXXXXXX
 ```
 
@@ -305,7 +305,7 @@ Content-Type: application/json
     "url": "https://linkedin.com/jobs/view/123456"
   },
   "user_profile": {
-    "name": "Heet Dedakiya",
+    "name": "Your Name",
     "skills": ["Python", "Flask", "TensorFlow"],
     "experience": 1,
     "domain": "Python Backend Development + AI/ML"
@@ -490,7 +490,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-**Heet Dedakiya**
+**Your Name**
 
 - Backend Developer & AI/ML Engineer
 - 1 year industry experience
@@ -531,7 +531,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Getting Help
 
-- 📧 Email: heet.dedakiya@gmail.com
+- 📧 Email: mail.example@gmail.com
 - 🐛 Issues: Create a GitHub issue with detailed description
 - 💬 Questions: Use GitHub Discussions
 - 📚 Docs: Check the comprehensive documentation files in the repo

@@ -21,6 +21,46 @@ from utils.env_manager import getenv, getenv_int, getenv_bool, get_env_manager
 from services.ai_agent import analyze_job_post
 from services.ai_settings import get_ai_settings_service
 
+def setup_logging():
+    """Setup logging configuration for production deployment"""
+    import logging
+    from logging.handlers import RotatingFileHandler
+    
+    # Get log file path from environment or use default
+    log_file = getenv('LOG_FILE', 'logs/app.log')
+    log_dir = os.path.dirname(log_file)
+    
+    # Create log directory if it doesn't exist
+    if log_dir and not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except (OSError, PermissionError) as e:
+            print(f"Warning: Could not create log directory {log_dir}: {e}")
+            return False
+    
+    try:
+        # Setup file handler with rotation
+        file_handler = RotatingFileHandler(
+            log_file, 
+            maxBytes=getenv_int('LOG_MAX_BYTES', 10240), 
+            backupCount=getenv_int('LOG_BACKUP_COUNT', 10)
+        )
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        ))
+        file_handler.setLevel(logging.INFO)
+        
+        # Add handler to app logger
+        app.logger.addHandler(file_handler)
+        app.logger.setLevel(logging.INFO)
+        app.logger.info('LinkedIn Job Assistant API startup - logging configured')
+        return True
+        
+    except (OSError, IOError, PermissionError) as e:
+        print(f"Warning: Could not set up file logging: {e}")
+        app.logger.setLevel(logging.INFO)
+        return False
+
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Chrome extension
@@ -494,20 +534,15 @@ def get_api_key_for_display():
 # ==================== MAIN APPLICATION ====================
 
 if __name__ == '__main__':
-    # Set up logging
+    # Set up logging for production
     if not DEBUG:
-        import logging
-        from logging.handlers import RotatingFileHandler
-        
-        file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240, backupCount=10)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        app.logger.setLevel(logging.INFO)
-        app.logger.info('LinkedIn Job Assistant API startup')
+        logging_success = setup_logging()
+        if logging_success:
+            app.logger.info('File logging enabled')
+        else:
+            print('Running with console logging only')
     
+    # Run the app
     # Create logs directory
     os.makedirs('logs', exist_ok=True)
     
