@@ -12,11 +12,16 @@ echo -e "${GREEN}🚀 Starting LinkedIn Job Assistant in Production Mode${NC}"
 # Change to backend directory
 cd "$(dirname "$0")"
 
-# Check if virtual environment exists
+# Check if virtual environment exists, create if not
 if [ ! -d "venv" ]; then
-    echo -e "${RED}❌ Virtual environment not found!${NC}"
-    echo -e "${YELLOW}Please run: python -m venv venv && source venv/bin/activate && pip install -r requirements.txt${NC}"
-    exit 1
+    echo -e "${YELLOW}📦 Virtual environment not found. Creating...${NC}"
+    python3 -m venv venv
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Failed to create virtual environment!${NC}"
+        echo -e "${YELLOW}Please ensure Python 3 is installed${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Virtual environment created successfully${NC}"
 fi
 
 # Activate virtual environment
