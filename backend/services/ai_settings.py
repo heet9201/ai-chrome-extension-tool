@@ -17,13 +17,60 @@ class AISettingsService:
         self.ensure_settings_file()
     
     def ensure_settings_file(self):
-        """Ensure the settings file exists"""
-        if not os.path.exists(self.settings_file):
-            self.save_settings({})
+        """Ensure the settings file and directory exist"""
+        try:
+            # Ensure the directory exists
+            settings_dir = os.path.dirname(self.settings_file)
+            if not os.path.exists(settings_dir):
+                os.makedirs(settings_dir, exist_ok=True)
+                print(f"Created directory: {settings_dir}")
+            
+            # Ensure the file exists
+            if not os.path.exists(self.settings_file):
+                print(f"Creating AI settings file: {self.settings_file}")
+                # Create an empty settings file with basic structure
+                initial_settings = {
+                    "last_updated": datetime.now().isoformat(),
+                    "version": "1.0.0"
+                }
+                self.save_settings(initial_settings)
+        except Exception as e:
+            print(f"Error ensuring settings file: {str(e)}")
+            # Try alternative path if the primary fails
+            try:
+                self.settings_file = os.path.join('backend', 'ai_settings.json')
+                settings_dir = os.path.dirname(self.settings_file)
+                if not os.path.exists(settings_dir):
+                    os.makedirs(settings_dir, exist_ok=True)
+                
+                if not os.path.exists(self.settings_file):
+                    print(f"Creating AI settings file at alternative location: {self.settings_file}")
+                    initial_settings = {
+                        "last_updated": datetime.now().isoformat(),
+                        "version": "1.0.0"
+                    }
+                    self.save_settings(initial_settings)
+            except Exception as e2:
+                print(f"Error creating settings file at alternative location: {str(e2)}")
+                # Final fallback - create in current directory
+                self.settings_file = 'ai_settings.json'
+                if not os.path.exists(self.settings_file):
+                    print(f"Creating AI settings file in current directory: {self.settings_file}")
+                    initial_settings = {
+                        "last_updated": datetime.now().isoformat(),
+                        "version": "1.0.0"
+                    }
+                    self.save_settings(initial_settings)
     
     def save_settings(self, settings: Dict[str, Any]) -> bool:
         """Save AI settings to file"""
         try:
+            # Ensure directory exists before saving
+            settings_dir = os.path.dirname(self.settings_file)
+            if settings_dir and not os.path.exists(settings_dir):
+                os.makedirs(settings_dir, exist_ok=True)
+                print(f"Created directory for settings: {settings_dir}")
+            
             settings['last_updated'] = datetime.now().isoformat()
             
             with open(self.settings_file, 'w') as f:

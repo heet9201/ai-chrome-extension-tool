@@ -1,7 +1,10 @@
 // Background Script for LinkedIn Job Assistant
+// Import configuration
+importScripts('../utils/config.js');
+
 class BackgroundService {
     constructor() {
-        this.API_BASE_URL = 'http://localhost:5000/api';
+        this.API_BASE_URL = Config.getApiBaseUrl();
         try {
             this.init();
             console.log('LinkedIn Job Assistant background service initialized');

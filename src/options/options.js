@@ -266,7 +266,7 @@ class OptionsController {
             const formData = new FormData();
             formData.append('resume', file);
 
-            const response = await fetch('http://localhost:5000/api/upload-resume', {
+            const response = await fetch(Config.getApiUrl('upload-resume'), {
                 method: 'POST',
                 body: formData
             });
@@ -449,7 +449,7 @@ class OptionsController {
     // Save user profile to backend
     async saveUserProfile() {
         try {
-            const response = await fetch('http://localhost:5000/api/user-profile', {
+            const response = await fetch(Config.getApiUrl('user-profile'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -479,7 +479,7 @@ class OptionsController {
         this.showLoading('Testing email configuration...');
 
         try {
-            const response = await fetch('http://localhost:5000/api/test-email', {
+            const response = await fetch(Config.getApiUrl('test-email'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -687,7 +687,7 @@ class OptionsController {
         this.setApiKeyTestingStatus(provider, true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/test-ai', {
+            const response = await fetch(Config.getApiUrl('test-ai'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -795,7 +795,7 @@ class OptionsController {
         this.showLoading('Saving AI settings...');
 
         try {
-            const response = await fetch('http://localhost:5000/api/ai-settings', {
+            const response = await fetch(Config.getApiUrl('ai-settings'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -888,7 +888,7 @@ class OptionsController {
         this.lastAiSettingsLoad = now;
 
         try {
-            const response = await fetch('http://localhost:5000/api/ai-settings');
+            const response = await fetch(Config.getApiUrl('ai-settings'));
 
             if (response.ok) {
                 const result = await response.json();
@@ -969,7 +969,7 @@ class OptionsController {
         this.showLoading('Clearing AI keys...');
 
         try {
-            const response = await fetch('http://localhost:5000/api/ai-settings', {
+            const response = await fetch(Config.getApiUrl('ai-settings'), {
                 method: 'DELETE'
             });
 
@@ -1007,7 +1007,7 @@ class OptionsController {
             console.log(`Loading API key status for ${provider}...`);
 
             // Check if we have a stored key for this provider
-            const response = await fetch(`http://localhost:5000/api/ai-settings/key-status?provider=${provider}`);
+            const response = await fetch(Config.getApiUrl(`ai-settings/key-status?provider=${provider}`));
 
             if (response.ok) {
                 const result = await response.json();
@@ -1059,7 +1059,7 @@ class OptionsController {
                 }
             } else {
                 // Fallback: check if we can get provider settings
-                const settingsResponse = await fetch('http://localhost:5000/api/ai-settings');
+                const settingsResponse = await fetch(Config.getApiUrl('ai-settings'));
                 if (settingsResponse.ok) {
                     const settingsResult = await settingsResponse.json();
                     const hasKey = settingsResult.settings && settingsResult.settings.provider === provider;
@@ -1164,7 +1164,7 @@ class OptionsController {
         loadBtn.disabled = true;
 
         try {
-            const response = await fetch(`http://localhost:5000/api/ai-settings/get-key`, {
+            const response = await fetch(Config.getApiUrl('ai-settings/get-key'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1367,7 +1367,7 @@ class OptionsController {
         console.log(`🔍 Fetching stored API key for provider: ${provider}`);
 
         try {
-            const response = await fetch(`http://localhost:5000/api/ai-settings/get-key`, {
+            const response = await fetch(Config.getApiUrl('ai-settings/get-key'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

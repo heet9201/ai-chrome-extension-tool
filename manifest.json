@@ -13,7 +13,7 @@
   
   "host_permissions": [
     "https://www.linkedin.com/*",
-    "https://your-backend-domain.com/*",
+    "https://ai-chrome-extension-tool.onrender.com/*",
     "http://127.0.0.1:5000/*"
   ],
   
@@ -25,6 +25,7 @@
     {
       "matches": ["https://www.linkedin.com/*"],
       "js": [
+        "src/utils/config.js",
         "src/content/linkedin-parser.js",
         "src/content/content.js"
       ],
