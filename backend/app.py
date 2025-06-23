@@ -20,6 +20,8 @@ from flask_cors import CORS
 from utils.env_manager import getenv, getenv_int, getenv_bool, get_env_manager
 from services.ai_agent import analyze_job_post
 from services.ai_settings import get_ai_settings_service
+# Import resume parsing utility
+from utils.resume_parser import parse_resume_file, get_resume_skills_for_job
 
 def setup_logging():
     """Setup logging configuration for production deployment"""
@@ -536,6 +538,41 @@ def get_api_key_for_display():
         print(f"❌ Error getting API key for display: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
+# ==================== RESUME PARSING ENDPOINTS ====================
+
+@app.route('/api/parse-resume', methods=['POST'])
+def parse_resume():
+    """Parse uploaded resume and extract skills"""
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'file_path' not in data:
+            return jsonify({'error': 'Resume file path is required'}), 400
+        
+        file_path = data['file_path']
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'Resume file not found'}), 404
+        
+        # Parse resume
+        result = parse_resume_file(file_path)
+        
+        if result.get('success'):
+            app.logger.info(f"Resume parsed successfully: {result.get('skill_count', 0)} skills found")
+            return jsonify(result)
+        else:
+            app.logger.error(f"Failed to parse resume: {result.get('error')}")
+            return jsonify(result), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error parsing resume: {str(e)}")
+        return jsonify({
+            'error': 'Failed to parse resume',
+            'details': str(e) if app.debug else None
+        }), 500
+
 # ==================== MAIN APPLICATION ====================
 
 if __name__ == '__main__':
@@ -560,5 +597,6 @@ if __name__ == '__main__':
     print(f"   - GET /api/ai-settings/key-status - Check API key status")
     print(f"   - POST /api/ai-settings/get-key - Get API key for display")
     print(f"   - POST /api/test-ai - Test AI connection")
+    print(f"   - POST /api/parse-resume - Parse resumes for skills")
     
     app.run(host='0.0.0.0', port=port, debug=debug)

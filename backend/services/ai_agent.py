@@ -604,4 +604,88 @@ def analyze_job_post(job_data: dict, user_profile: dict, ai_settings: dict = Non
         # Fallback to environment variables or default settings
         agent = JobAnalysisAgent()
     
-    return agent.analyze_job(job_data, user_profile)
+    # Get the basic analysis
+    result = agent.analyze_job(job_data, user_profile)
+    
+    # Add resume skills analysis if resume exists
+    resume_url = user_profile.get('resumeUrl', '')
+    if resume_url and os.path.exists(resume_url):
+        try:
+            # Import here to avoid circular imports
+            from utils.resume_parser import get_resume_skills_for_job
+            
+            # Extract job keywords for matching
+            job_text = (job_data.get('title', '') + ' ' + 
+                       job_data.get('description', '') + ' ' + 
+                       job_data.get('content', '')).lower()
+            
+            # Extract keywords (simple approach - can be enhanced)
+            job_keywords = []
+            common_tech_words = [
+                'python', 'java', 'javascript', 'react', 'angular', 'vue', 'flask', 'django',
+                'fastapi', 'node', 'express', 'mongodb', 'postgresql', 'mysql', 'redis',
+                'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'git', 'jenkins', 'ci/cd',
+                'machine learning', 'ai', 'deep learning', 'tensorflow', 'pytorch',
+                'api', 'rest', 'graphql', 'microservices', 'agile', 'scrum'
+            ]
+            
+            for word in common_tech_words:
+                if word in job_text:
+                    job_keywords.append(word)
+            
+            # Get matching resume skills
+            resume_analysis = get_resume_skills_for_job(resume_url, job_keywords)
+            
+            if resume_analysis.get('success'):
+                relevant_skills = resume_analysis.get('relevant_skills', [])
+                
+                # Update result with resume information
+                result.update({
+                    'resume_skills_used': len(relevant_skills) > 0,
+                    'resume_skills_count': len(relevant_skills),
+                    'relevant_resume_skills': relevant_skills[:10],  # Limit to top 10
+                    'total_resume_skills': resume_analysis.get('total_skills', 0),
+                    'skills_match_percentage': resume_analysis.get('match_percentage', 0),
+                    'has_resume': True
+                })
+                
+                # If we found relevant skills, mention them in the email
+                if len(relevant_skills) > 0 and result.get('status') == 'RELEVANT':
+                    # Enhance email body with resume skills
+                    current_body = result.get('email_body', '')
+                    skills_text = ', '.join(relevant_skills[:5])  # Top 5 skills
+                    
+                    # Add skills mention if not already present
+                    if 'resume' not in current_body.lower():
+                        enhanced_body = current_body.replace(
+                            'I believe I would be a great fit for this role.',
+                            f'I believe I would be a great fit for this role. My resume highlights my expertise in {skills_text}, which directly aligns with your requirements.'
+                        )
+                        
+                        if enhanced_body != current_body:
+                            result['email_body'] = enhanced_body
+            else:
+                result.update({
+                    'resume_skills_used': False,
+                    'resume_skills_count': 0,
+                    'relevant_resume_skills': [],
+                    'has_resume': True
+                })
+        except Exception as e:
+            print(f"Error analyzing resume skills: {str(e)}")
+            result.update({
+                'resume_skills_used': False,
+                'resume_skills_count': 0,
+                'relevant_resume_skills': [],
+                'has_resume': True
+            })
+    else:
+        # No resume uploaded
+        result.update({
+            'resume_skills_used': False,
+            'resume_skills_count': 0,
+            'relevant_resume_skills': [],
+            'has_resume': False
+        })
+    
+    return result

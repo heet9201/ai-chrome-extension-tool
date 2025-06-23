@@ -223,6 +223,12 @@ class LinkedInJobAssistant {
 
   // Show analysis results modal
   showAnalysisResults(analysisData) {
+    // Debug: Log the analysis data to see what we're receiving
+    console.log('🔍 Analysis Data Received:', analysisData);
+    console.log('📄 Resume Skills Used:', analysisData.resume_skills_used);
+    console.log('📊 Resume Skills Count:', analysisData.resume_skills_count);
+    console.log('🎯 Relevant Resume Skills:', analysisData.relevant_resume_skills);
+
     // Remove existing modal
     const existingModal = document.getElementById('job-assistant-modal');
     if (existingModal) {
@@ -252,26 +258,50 @@ class LinkedInJobAssistant {
                 <p><strong>Email:</strong> ${analysisData.contact || 'Not found'}</p>
               </div>
               
+              ${analysisData.resume_skills_used === true && analysisData.relevant_resume_skills && analysisData.relevant_resume_skills.length > 0 ? `
+                <div class="resume-skills-info">
+                  <h4>📄 Resume Analysis</h4>
+                  <p><strong>Resume Skills Used:</strong> Yes (${analysisData.resume_skills_count || 0} skills)</p>
+                  <p><strong>Relevant Skills:</strong> ${analysisData.relevant_resume_skills.slice(0, 5).join(', ')}${analysisData.relevant_resume_skills.length > 5 ? '...' : ''}</p>
+                  <small style="color: #28a745;">✨ Email generated using skills from your resume for better job matching</small>
+                </div>
+              ` : (analysisData.has_resume === false ? `
+                <div class="resume-skills-info">
+                  <p style="color: #6c757d;"><small>💡 Upload a resume in settings for more personalized applications</small></p>
+                </div>
+              ` : `
+                <div class="resume-skills-info">
+                  <p style="color: #6c757d;"><small>📄 Resume available but no matching skills found for this job</small></p>
+                </div>
+              `)}
+              
               <div class="email-section">
                 <h4>Generated Email</h4>
                 <div class="email-preview">
-                  <p><strong>Subject:</strong> ${analysisData.email_subject}</p>
-                  <div class="email-body">
-                    ${analysisData.email_body.replace(/\n/g, '<br>')}
+                  <div class="subject-display">
+                    <p><strong>Subject:</strong> <span class="editable-subject" data-placeholder="Click to edit subject">${analysisData.email_subject}</span></p>
+                  </div>
+                  <div class="body-display">
+                    <strong>Message:</strong>
+                    <div class="editable-body" data-placeholder="Click to edit email body">${analysisData.email_body.replace(/\n/g, '<br>')}</div>
+                  </div>
+                  <div class="edit-actions" style="display: none;">
+                    <button class="btn-save-inline">💾 Save Changes</button>
+                    <button class="btn-cancel-inline">❌ Cancel</button>
                   </div>
                 </div>
               </div>
               
               <div class="action-buttons">
                 <button class="btn-primary copy-email-btn" data-subject="${analysisData.email_subject}" data-body="${analysisData.email_body}">
-                  Copy Email
+                  📋 Copy Email
                 </button>
                 <button class="btn-secondary open-email-btn" data-email="${analysisData.contact}" data-subject="${analysisData.email_subject}" data-body="${analysisData.email_body}">
-                  Open Email Client
+                  📧 Open Email Client
                 </button>
                 ${analysisData.contact ? `
                   <button class="btn-success send-email-btn" data-email="${analysisData.contact}" data-subject="${analysisData.email_subject}" data-body="${analysisData.email_body}">
-                    Send Automatically
+                    🚀 Send Automatically
                   </button>
                 ` : ''}
               </div>
@@ -383,6 +413,123 @@ class LinkedInJobAssistant {
           line-height: 1.5;
         }
         
+        /* Resume Skills Info Styles */
+        #job-assistant-modal .resume-skills-info {
+          background: #e8f5e8;
+          padding: 15px;
+          border-radius: 8px;
+          margin: 10px 0;
+          border-left: 4px solid #28a745;
+        }
+        
+        #job-assistant-modal .resume-skills-info h4 {
+          margin: 0 0 10px 0;
+          color: #155724;
+        }
+        
+        /* Inline Editing Styles */
+        .editable-subject,
+        .editable-body {
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          min-height: 20px;
+          position: relative;
+          display: block;
+          line-height: 1.5;
+        }
+        
+        .editable-subject {
+          display: inline-block;
+          min-height: 24px;
+        }
+        
+        .editable-subject:hover,
+        .editable-body:hover {
+          background: #e9ecef;
+          outline: 2px dashed #0077b5;
+        }
+        
+        .editable-subject:hover::after,
+        .editable-body:hover::after {
+          content: "✏️ Click to edit";
+          position: absolute;
+          top: -25px;
+          right: 0;
+          background: #0077b5;
+          color: white;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: 500;
+          white-space: nowrap;
+          z-index: 1000;
+        }
+        
+        .editing-input {
+          width: 100%;
+          padding: 8px;
+          border: 2px solid #0077b5;
+          border-radius: 4px;
+          font-size: 14px;
+          font-family: inherit;
+          background: white;
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
+          box-sizing: border-box;
+        }
+        
+        .editing-textarea {
+          width: 100%;
+          padding: 8px;
+          border: 2px solid #0077b5;
+          border-radius: 4px;
+          font-size: 14px;
+          font-family: inherit;
+          background: white;
+          outline: none;
+          resize: vertical;
+          line-height: 1.5;
+          box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
+          box-sizing: border-box;
+        }
+        
+        .edit-actions {
+          margin-top: 10px;
+          display: flex;
+          gap: 8px;
+        }
+        
+        .btn-save-inline,
+        .btn-cancel-inline {
+          padding: 6px 12px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+        
+        .btn-save-inline {
+          background: #28a745;
+          color: white;
+        }
+        
+        .btn-save-inline:hover {
+          background: #218838;
+        }
+        
+        .btn-cancel-inline {
+          background: #6c757d;
+          color: white;
+        }
+        
+        .btn-cancel-inline:hover {
+          background: #5a6268;
+        }
+        
         #job-assistant-modal .action-buttons {
           display: flex;
           gap: 10px;
@@ -412,6 +559,16 @@ class LinkedInJobAssistant {
         #job-assistant-modal .btn-success {
           background: #28a745;
           color: white;
+        }
+        
+        #job-assistant-modal .btn-edit {
+          background: #ffc107;
+          color: #000;
+          font-weight: 600;
+        }
+        
+        #job-assistant-modal .btn-edit:hover {
+          background: #e0a800;
         }
         
         #job-assistant-modal .action-buttons button:hover {
@@ -467,6 +624,9 @@ class LinkedInJobAssistant {
       });
     }
 
+    // Setup inline editing for subject and body
+    this.setupInlineEditing(modal, analysisData.contact);
+
     // Open email client button
     const openEmailBtn = modal.querySelector('.open-email-btn');
     if (openEmailBtn) {
@@ -502,6 +662,177 @@ class LinkedInJobAssistant {
   openEmailClient(email, subject, body) {
     const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(mailtoLink);
+  }
+
+  // Setup inline editing functionality
+  setupInlineEditing(modal, emailAddress) {
+    const editableSubject = modal.querySelector('.editable-subject');
+    const editableBody = modal.querySelector('.editable-body');
+    const editActions = modal.querySelector('.edit-actions');
+    const saveBtn = modal.querySelector('.btn-save-inline');
+    const cancelBtn = modal.querySelector('.btn-cancel-inline');
+
+    let originalSubject = '';
+    let originalBody = '';
+    let isEditing = false;
+
+    // Function to start editing subject
+    const startSubjectEdit = () => {
+      if (isEditing) return;
+
+      isEditing = true;
+      originalSubject = editableSubject.textContent;
+
+      // Get the current dimensions of the subject element
+      const currentHeight = editableSubject.offsetHeight;
+      const computedStyle = window.getComputedStyle(editableSubject);
+      const paddingTop = parseInt(computedStyle.paddingTop);
+      const paddingBottom = parseInt(computedStyle.paddingBottom);
+
+      const input = document.createElement('input');
+      input.className = 'editing-input';
+      input.value = originalSubject;
+      input.maxLength = 200;
+
+      // Set the height to match the original element, accounting for padding
+      const targetHeight = Math.max(currentHeight, 32);
+      input.style.height = `${targetHeight}px`;
+
+      editableSubject.style.display = 'none';
+      editableSubject.parentNode.insertBefore(input, editableSubject.nextSibling);
+
+      editActions.style.display = 'flex';
+      input.focus();
+      input.select();
+
+      // Store reference for later access
+      modal.currentEditInput = input;
+    };
+
+    // Function to start editing body
+    const startBodyEdit = () => {
+      if (isEditing) return;
+
+      isEditing = true;
+      originalBody = editableBody.innerHTML.replace(/<br>/g, '\n');
+
+      // Get the current dimensions of the body element
+      const currentHeight = editableBody.offsetHeight;
+      const computedStyle = window.getComputedStyle(editableBody);
+
+      const textarea = document.createElement('textarea');
+      textarea.className = 'editing-textarea';
+      textarea.value = originalBody;
+      textarea.maxLength = 2000;
+
+      // Set the height to match the original element, with a reasonable minimum
+      const targetHeight = Math.max(currentHeight, 80);
+      textarea.style.height = `${targetHeight}px`;
+
+      editableBody.style.display = 'none';
+      editableBody.parentNode.insertBefore(textarea, editableBody.nextSibling);
+
+      editActions.style.display = 'flex';
+      textarea.focus();
+
+      // Store reference for later access
+      modal.currentEditTextarea = textarea;
+    };
+
+    // Function to save changes
+    const saveChanges = () => {
+      let newSubject = originalSubject;
+      let newBody = originalBody;
+
+      // Get new values
+      if (modal.currentEditInput) {
+        newSubject = modal.currentEditInput.value.trim();
+        if (!newSubject) {
+          this.showNotification('Subject cannot be empty', 'warning');
+          return;
+        }
+      }
+
+      if (modal.currentEditTextarea) {
+        newBody = modal.currentEditTextarea.value.trim();
+        if (!newBody) {
+          this.showNotification('Email body cannot be empty', 'warning');
+          return;
+        }
+      }
+
+      // Update display
+      if (modal.currentEditInput) {
+        editableSubject.textContent = newSubject;
+        modal.currentEditInput.remove();
+        modal.currentEditInput = null;
+        editableSubject.style.display = 'inline';
+      }
+
+      if (modal.currentEditTextarea) {
+        editableBody.innerHTML = newBody.replace(/\n/g, '<br>');
+        modal.currentEditTextarea.remove();
+        modal.currentEditTextarea = null;
+        editableBody.style.display = 'block';
+      }
+
+      // Update all button data attributes
+      this.updateEmailContent(modal, newSubject, newBody, emailAddress);
+
+      // Hide edit actions
+      editActions.style.display = 'none';
+      isEditing = false;
+
+      this.showNotification('Email updated successfully!', 'success');
+    };
+
+    // Function to cancel editing
+    const cancelEditing = () => {
+      if (modal.currentEditInput) {
+        modal.currentEditInput.remove();
+        modal.currentEditInput = null;
+        editableSubject.style.display = 'inline';
+      }
+
+      if (modal.currentEditTextarea) {
+        modal.currentEditTextarea.remove();
+        modal.currentEditTextarea = null;
+        editableBody.style.display = 'block';
+      }
+
+      editActions.style.display = 'none';
+      isEditing = false;
+    };
+
+    // Event listeners
+    if (editableSubject) {
+      editableSubject.addEventListener('click', startSubjectEdit);
+    }
+
+    if (editableBody) {
+      editableBody.addEventListener('click', startBodyEdit);
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', saveChanges);
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', cancelEditing);
+    }
+
+    // Handle Enter key for subject input and Escape for cancel
+    modal.addEventListener('keydown', (e) => {
+      if (isEditing) {
+        if (e.key === 'Enter' && modal.currentEditInput) {
+          e.preventDefault();
+          saveChanges();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelEditing();
+        }
+      }
+    });
   }
 
   // Send email automatically
@@ -541,6 +872,26 @@ class LinkedInJobAssistant {
       console.error('Error sending email:', error);
       this.showNotification(error.message || 'Error sending email', 'error');
     }
+  }
+
+  // Update email content in the main modal  
+  updateEmailContent(modal, newSubject, newBody, emailAddress) {
+    // Update all button data attributes
+    const buttons = modal.querySelectorAll('.copy-email-btn, .open-email-btn, .send-email-btn');
+    buttons.forEach(button => {
+      button.dataset.subject = newSubject;
+      button.dataset.body = newBody;
+      if (emailAddress) {
+        button.dataset.email = emailAddress;
+      }
+    });
+  }
+
+  // Escape HTML to prevent XSS
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   // Show notification
@@ -628,6 +979,28 @@ class LinkedInJobAssistant {
       childList: true,
       subtree: true
     });
+  }
+
+  // Determine if resume skills information should be shown
+  shouldShowResumeSkillsInfo(analysisData) {
+    if (analysisData.resume_skills_used === true) {
+      return `
+        <div class="resume-skills-info">
+          <h4>📄 Resume Analysis</h4>
+          <p><strong>Resume Skills Used:</strong> Yes (${analysisData.resume_skills_count || 0} skills)</p>
+          ${analysisData.relevant_resume_skills && analysisData.relevant_resume_skills.length > 0 ? `
+            <p><strong>Relevant Skills:</strong> ${analysisData.relevant_resume_skills.slice(0, 5).join(', ')}${analysisData.relevant_resume_skills.length > 5 ? '...' : ''}</p>
+          ` : ''}
+          <small style="color: #28a745;">✨ Email generated using skills from your resume for better job matching</small>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="resume-skills-info">
+          <p style="color: #6c757d;"><small>💡 Upload a resume in settings for more personalized applications</small></p>
+        </div>
+      `;
+    }
   }
 }
 
