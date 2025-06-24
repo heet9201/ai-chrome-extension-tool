@@ -107,6 +107,9 @@ class OptionsController {
 
         // API key management button listeners
         this.setupApiKeyButtonListeners();
+
+        // Resume skills button listeners
+        this.setupResumeSkillsListeners();
     }
 
     // Make API key input editable
@@ -282,6 +285,11 @@ class OptionsController {
                     this.userProfile.resumeUrl = result.path;
                     await this.saveUserProfile();
                 }
+
+                // Check resume skills after successful upload
+                setTimeout(() => {
+                    this.checkResumeStatus();
+                }, 1000);
             } else {
                 throw new Error(result.error || 'Upload failed');
             }
@@ -343,7 +351,7 @@ class OptionsController {
 
         // Personal information
         document.getElementById('name').value = this.userProfile.name || '';
-        document.getElementById('email').value = this.userProfile.email || '';
+        document.getElementById('userEmail').value = this.userProfile.email || '';
         document.getElementById('phone').value = this.userProfile.phone || '';
         document.getElementById('experience').value = this.userProfile.experience || '';
         document.getElementById('domain').value = this.userProfile.domain || '';
@@ -370,7 +378,15 @@ class OptionsController {
         // Resume status
         if (this.userProfile.resumeUrl) {
             this.updateResumeStatus('Resume uploaded', 'success');
+
+            // If we already have stored skills, display them immediately
+            if (this.userProfile.resumeSkills && this.userProfile.resumeSkills.length > 0) {
+                this.displayStoredResumeSkills();
+            }
         }
+
+        // Check resume skills status (this will refresh/fetch if needed)
+        this.checkResumeStatus();
     }
 
     // Populate checkbox arrays
@@ -385,7 +401,7 @@ class OptionsController {
     collectFormData() {
         const formData = {
             name: document.getElementById('name').value,
-            email: document.getElementById('email').value,
+            email: document.getElementById('userEmail').value,
             phone: document.getElementById('phone').value,
             experience: document.getElementById('experience').value,
             domain: document.getElementById('domain').value,
@@ -1444,6 +1460,309 @@ class OptionsController {
     hideLoading() {
         // Hide loading spinner/overlay
         console.log('✅ Loading complete');
+    }
+
+    // Setup resume skills listeners
+    setupResumeSkillsListeners() {
+        const refreshBtn = document.getElementById('refreshResumeBtn');
+        const viewBtn = document.getElementById('viewResumeBtn');
+        const syncBtn = document.getElementById('syncSkillsBtn');
+
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.checkResumeStatus());
+        }
+
+        if (viewBtn) {
+            viewBtn.addEventListener('click', () => this.viewResumeDetails());
+        }
+
+        if (syncBtn) {
+            syncBtn.addEventListener('click', () => this.syncResumeSkillsToField());
+        }
+    }
+
+    // Check resume status and skills
+    async checkResumeStatus() {
+        console.log('🔍 Checking resume status...');
+
+        const resumeStatusTitle = document.getElementById('resumeStatusTitle');
+        const resumeStatusMessage = document.getElementById('resumeStatusMessage');
+        const resumeSkillsList = document.getElementById('resumeSkillsList');
+        const skillsTags = document.getElementById('skillsTags');
+        const skillsCount = document.getElementById('skillsCount');
+        const viewBtn = document.getElementById('viewResumeBtn');
+        const refreshBtn = document.getElementById('refreshResumeBtn');
+        const statusCard = document.querySelector('.resume-status-card');
+
+        if (!this.userProfile || !this.userProfile.resumeUrl) {
+            // No resume uploaded
+            resumeStatusTitle.textContent = 'No Resume Uploaded';
+            resumeStatusMessage.textContent = 'Upload a resume to extract skills for better job matching';
+            resumeSkillsList.style.display = 'none';
+            viewBtn.style.display = 'none';
+            statusCard.className = 'resume-status-card no-resume';
+            return;
+        }
+
+        // Show loading state
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = '🔄 Analyzing...';
+        resumeStatusMessage.textContent = 'Analyzing resume skills...';
+        statusCard.className = 'resume-status-card';
+
+        try {
+            // Parse the resume to get skills
+            const response = await fetch(Config.getApiUrl('parse-resume'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    file_path: this.userProfile.resumeUrl
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Update status to success
+                resumeStatusTitle.textContent = 'Resume Skills Extracted';
+                resumeStatusMessage.textContent = `Found ${result.skill_count || 0} skills from your resume`;
+                statusCard.className = 'resume-status-card has-resume';
+
+                // Display skills
+                if (result.skills && result.skills.length > 0) {
+                    this.displaySkills(result.skills, skillsTags, skillsCount);
+                    resumeSkillsList.style.display = 'block';
+                    viewBtn.style.display = 'inline-block';
+                    document.getElementById('syncSkillsBtn').style.display = 'inline-block';
+
+                    // Store the parsed skills in user profile for future use
+                    this.userProfile.resumeSkills = result.skills;
+                    this.userProfile.resumeSkillsByCategory = result.skills_by_category;
+                    this.userProfile.resumeContactInfo = result.contact_info;
+                    await this.saveUserProfile();
+
+                    this.showNotification(`Successfully extracted ${result.skill_count} skills from your resume!`, 'success');
+                } else {
+                    resumeStatusMessage.textContent = 'No technical skills found in resume';
+                    resumeSkillsList.style.display = 'none';
+                    viewBtn.style.display = 'none';
+                    document.getElementById('syncSkillsBtn').style.display = 'none';
+                    this.showNotification('No technical skills found in the resume', 'warning');
+                }
+            } else {
+                // Error parsing resume
+                resumeStatusTitle.textContent = 'Resume Analysis Failed';
+                resumeStatusMessage.textContent = result.error || 'Could not analyze resume';
+                resumeSkillsList.style.display = 'none';
+                viewBtn.style.display = 'none';
+                document.getElementById('syncSkillsBtn').style.display = 'none';
+                statusCard.className = 'resume-status-card error';
+                this.showNotification(`Resume analysis failed: ${result.error}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('Error checking resume status:', error);
+            resumeStatusTitle.textContent = 'Analysis Error';
+            resumeStatusMessage.textContent = 'Failed to analyze resume. Please try again.';
+            resumeSkillsList.style.display = 'none';
+            viewBtn.style.display = 'none';
+            document.getElementById('syncSkillsBtn').style.display = 'none';
+            statusCard.className = 'resume-status-card error';
+            this.showNotification('Failed to analyze resume. Please check your connection and try again.', 'error');
+        } finally {
+            // Reset button state
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '🔄 Refresh Status';
+        }
+    }
+
+    // Display skills tags
+    displaySkills(skills, container, countElement) {
+        // Clear existing skills
+        container.innerHTML = '';
+
+        // Display up to 15 skills (to avoid overcrowding)
+        const displaySkills = skills.slice(0, 15);
+
+        displaySkills.forEach(skill => {
+            const skillTag = document.createElement('span');
+            skillTag.className = 'skill-tag';
+            skillTag.textContent = skill;
+            container.appendChild(skillTag);
+        });
+
+        // Update count
+        countElement.textContent = skills.length;
+
+        // Show "and X more..." if there are more skills
+        if (skills.length > 15) {
+            const moreTag = document.createElement('span');
+            moreTag.className = 'skill-tag skill-tag-more';
+            moreTag.textContent = `+${skills.length - 15} more`;
+            container.appendChild(moreTag);
+        }
+    }
+
+    // View detailed resume information
+    viewResumeDetails() {
+        if (!this.userProfile || !this.userProfile.resumeSkills) {
+            this.showNotification('No resume skills data available', 'warning');
+            return;
+        }
+
+        // Create modal for detailed view
+        const modal = this.createResumeDetailsModal();
+        document.body.appendChild(modal);
+
+        // Setup modal close functionality
+        const closeBtn = modal.querySelector('.modal-close');
+        const overlay = modal.querySelector('.modal-overlay');
+
+        closeBtn.addEventListener('click', () => modal.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) modal.remove();
+        });
+
+        // Close on escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+    }
+
+    // Create resume details modal
+    createResumeDetailsModal() {
+        const skills = this.userProfile.resumeSkills || [];
+        const skillsByCategory = this.userProfile.resumeSkillsByCategory || {};
+        const contactInfo = this.userProfile.resumeContactInfo || {};
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📄 Resume Details</h2>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="resume-detail-section">
+                        <h3>📊 Skills Summary</h3>
+                        <p>Total Skills Found: <strong>${skills.length}</strong></p>
+                    </div>
+
+                    ${Object.keys(skillsByCategory).length > 0 ? `
+                        <div class="resume-detail-section">
+                            <h3>🏷️ Skills by Category</h3>
+                            ${Object.entries(skillsByCategory).map(([category, categorySkills]) =>
+            categorySkills.length > 0 ? `
+                                    <div class="skill-category">
+                                        <h4>${this.formatCategoryName(category)}</h4>
+                                        <div class="skills-tags">
+                                            ${categorySkills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''
+        ).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${Object.keys(contactInfo).some(key => contactInfo[key]) ? `
+                        <div class="resume-detail-section">
+                            <h3>📞 Contact Information Found</h3>
+                            <div class="contact-info">
+                                ${contactInfo.email ? `<p><strong>Email:</strong> ${contactInfo.email}</p>` : ''}
+                                ${contactInfo.phone ? `<p><strong>Phone:</strong> ${contactInfo.phone}</p>` : ''}
+                                ${contactInfo.linkedin ? `<p><strong>LinkedIn:</strong> ${contactInfo.linkedin}</p>` : ''}
+                                ${contactInfo.github ? `<p><strong>GitHub:</strong> ${contactInfo.github}</p>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="resume-detail-section">
+                        <h3>🔧 All Skills</h3>
+                        <div class="skills-tags">
+                            ${skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline modal-close">Close</button>
+                </div>
+            </div>
+        `;
+
+        return modal;
+    }
+
+    // Sync resume skills to manual skills field
+    syncResumeSkillsToField() {
+        if (!this.userProfile || !this.userProfile.resumeSkills || this.userProfile.resumeSkills.length === 0) {
+            this.showNotification('No resume skills available to sync', 'warning');
+            return;
+        }
+
+        const skillsField = document.getElementById('skills');
+        if (!skillsField) {
+            this.showNotification('Skills field not found', 'error');
+            return;
+        }
+
+        // Get current skills and remove duplicates
+        const currentSkills = skillsField.value ? skillsField.value.split(',').map(s => s.trim()).filter(s => s) : [];
+        const resumeSkills = this.userProfile.resumeSkills;
+
+        // Merge skills (resume skills + current skills, removing duplicates)
+        const allSkills = [...new Set([...resumeSkills, ...currentSkills])];
+
+        // Update the field
+        skillsField.value = allSkills.join(', ');
+
+        // Show success message
+        this.showNotification(`Synced ${resumeSkills.length} skills from resume to skills field!`, 'success');
+
+        // Highlight the field briefly
+        skillsField.style.borderColor = '#28a745';
+        skillsField.style.boxShadow = '0 0 0 0.2rem rgba(40, 167, 69, 0.25)';
+
+        setTimeout(() => {
+            skillsField.style.borderColor = '';
+            skillsField.style.boxShadow = '';
+        }, 2000);
+    }
+
+    // Display stored resume skills immediately (before fresh check)
+    displayStoredResumeSkills() {
+        const resumeStatusTitle = document.getElementById('resumeStatusTitle');
+        const resumeStatusMessage = document.getElementById('resumeStatusMessage');
+        const resumeSkillsList = document.getElementById('resumeSkillsList');
+        const skillsTags = document.getElementById('skillsTags');
+        const skillsCount = document.getElementById('skillsCount');
+        const viewBtn = document.getElementById('viewResumeBtn');
+        const statusCard = document.querySelector('.resume-status-card');
+
+        if (this.userProfile.resumeSkills && this.userProfile.resumeSkills.length > 0) {
+            resumeStatusTitle.textContent = 'Resume Skills Available';
+            resumeStatusMessage.textContent = `${this.userProfile.resumeSkills.length} skills loaded from resume`;
+            statusCard.className = 'resume-status-card has-resume';
+
+            this.displaySkills(this.userProfile.resumeSkills, skillsTags, skillsCount);
+            resumeSkillsList.style.display = 'block';
+            viewBtn.style.display = 'inline-block';
+            document.getElementById('syncSkillsBtn').style.display = 'inline-block';
+        }
+    }
+
+    // Format category name for display
+    formatCategoryName(category) {
+        return category
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
     }
 
 

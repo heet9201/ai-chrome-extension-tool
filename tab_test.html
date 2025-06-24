@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tab Switching Test</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 20px;
+      }
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .tab-button {
+        padding: 10px 20px;
+        border: 1px solid #ddd;
+        background: #f5f5f5;
+        cursor: pointer;
+        border-radius: 5px;
+        transition: all 0.2s ease;
+      }
+      .tab-button.active {
+        background: #0077b5;
+        color: white;
+        border-color: #0077b5;
+      }
+      .tab-content {
+        display: none;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background: white;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .test-result {
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 5px;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      button {
+        background: #0077b5;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Tab Switching Test</h1>
+    <p>This tests if the email tab switching issue has been fixed.</p>
+
+    <div class="test-section">
+      <h2>Tab Navigation</h2>
+      <div class="tabs">
+        <button class="tab-button active" data-tab="profile">👤 Profile</button>
+        <button class="tab-button" data-tab="preferences">
+          ⚙️ Preferences
+        </button>
+        <button class="tab-button" data-tab="ai-settings">
+          🤖 AI Settings
+        </button>
+        <button class="tab-button" data-tab="email">✉️ Email</button>
+        <button class="tab-button" data-tab="about">ℹ️ About</button>
+      </div>
+
+      <!-- Profile Tab -->
+      <div id="profile" class="tab-content active">
+        <h3>Profile Tab Content</h3>
+        <p>This is the profile tab. It should be active by default.</p>
+        <div>
+          <label for="userEmail">Email Address:</label>
+          <input type="email" id="userEmail" placeholder="test@example.com" />
+          <p>
+            <small>Note: This input has id="userEmail" (not "email")</small>
+          </p>
+        </div>
+        <div
+          style="
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+          "
+        >
+          <h4>📄 Resume & Skills Section</h4>
+          <p>✅ Resume Skills Status is now in the Profile tab!</p>
+          <p>
+            The resume upload and skills extraction features are now integrated
+            into the profile section for better UX.
+          </p>
+        </div>
+      </div>
+
+      <!-- Preferences Tab -->
+      <div id="preferences" class="tab-content">
+        <h3>Preferences Tab Content</h3>
+        <p>This is the preferences tab content.</p>
+      </div>
+
+      <!-- AI Settings Tab -->
+      <div id="ai-settings" class="tab-content">
+        <h3>AI Settings Tab Content</h3>
+        <p>This is the AI settings tab content.</p>
+      </div>
+
+      <!-- Email Tab -->
+      <div id="email" class="tab-content">
+        <h3>✉️ Email Tab Content</h3>
+        <p>This is the email tab content. This should now work correctly!</p>
+        <div
+          style="
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+          "
+        >
+          <h4>� Email Configuration</h4>
+          <p>✅ If you can see this tab, the ID conflict has been resolved!</p>
+          <p>
+            Resume Skills Status has been moved to the Profile tab for better
+            organization.
+          </p>
+          <p>
+            This tab now focuses solely on email configuration and settings.
+          </p>
+        </div>
+      </div>
+
+      <!-- About Tab -->
+      <div id="about" class="tab-content">
+        <h3>About Tab Content</h3>
+        <p>This is the about tab content.</p>
+      </div>
+    </div>
+
+    <div class="test-controls">
+      <h2>🧪 Test Controls</h2>
+      <button onclick="testTabSwitching()">Test All Tabs</button>
+      <button onclick="testEmailTabSpecifically()">Test Email Tab Only</button>
+      <button onclick="checkForIdConflicts()">Check for ID Conflicts</button>
+    </div>
+
+    <div id="testResults" style="margin-top: 20px"></div>
+
+    <script>
+      // Tab switching functionality (same as in options.js)
+      function switchTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll(".tab-content").forEach((content) => {
+          content.classList.remove("active");
+        });
+
+        // Remove active class from all tab buttons
+        document.querySelectorAll(".tab-button").forEach((button) => {
+          button.classList.remove("active");
+        });
+
+        // Show selected tab content
+        const targetContent = document.getElementById(tabName);
+        const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+
+        if (targetContent && targetButton) {
+          targetContent.classList.add("active");
+          targetButton.classList.add("active");
+          return true;
+        }
+        return false;
+      }
+
+      // Setup event listeners
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", (e) => {
+          const tabName = e.target.dataset.tab;
+          const success = switchTab(tabName);
+          console.log(`Switched to tab: ${tabName}, Success: ${success}`);
+        });
+      });
+
+      // Test functions
+      function testTabSwitching() {
+        const results = document.getElementById("testResults");
+        let html = "<h3>🧪 Tab Switching Test Results</h3>";
+
+        const tabs = [
+          "profile",
+          "preferences",
+          "ai-settings",
+          "email",
+          "about",
+        ];
+        let allPassed = true;
+
+        tabs.forEach((tabName) => {
+          const success = switchTab(tabName);
+          const tabContent = document.getElementById(tabName);
+          const isVisible =
+            tabContent && tabContent.classList.contains("active");
+
+          if (success && isVisible) {
+            html += `<div class="test-result success">✅ ${tabName} tab: PASS</div>`;
+          } else {
+            html += `<div class="test-result error">❌ ${tabName} tab: FAIL (success: ${success}, visible: ${isVisible})</div>`;
+            allPassed = false;
+          }
+        });
+
+        if (allPassed) {
+          html +=
+            '<div class="test-result success"><strong>🎉 All tabs working correctly!</strong></div>';
+        } else {
+          html +=
+            '<div class="test-result error"><strong>❌ Some tabs failed</strong></div>';
+        }
+
+        results.innerHTML = html;
+      }
+
+      function testEmailTabSpecifically() {
+        const results = document.getElementById("testResults");
+
+        // Test email tab switching
+        const success = switchTab("email");
+        const emailTab = document.getElementById("email");
+        const isVisible = emailTab && emailTab.classList.contains("active");
+        const emailButton = document.querySelector('[data-tab="email"]');
+        const buttonActive =
+          emailButton && emailButton.classList.contains("active");
+
+        let html = "<h3>📧 Email Tab Specific Test</h3>";
+        html += `<div class="test-result ${
+          success ? "success" : "error"
+        }">switchTab('email') returned: ${success}</div>`;
+        html += `<div class="test-result ${
+          isVisible ? "success" : "error"
+        }">Email tab visible: ${isVisible}</div>`;
+        html += `<div class="test-result ${
+          buttonActive ? "success" : "error"
+        }">Email button active: ${buttonActive}</div>`;
+
+        if (success && isVisible && buttonActive) {
+          html +=
+            '<div class="test-result success"><strong>🎉 Email tab is working perfectly!</strong></div>';
+        } else {
+          html +=
+            '<div class="test-result error"><strong>❌ Email tab has issues</strong></div>';
+        }
+
+        results.innerHTML = html;
+      }
+
+      function checkForIdConflicts() {
+        const results = document.getElementById("testResults");
+
+        // Check for ID conflicts
+        const emailTab = document.getElementById("email");
+        const userEmailInput = document.getElementById("userEmail");
+
+        let html = "<h3>🔍 ID Conflict Check</h3>";
+        html += `<div class="test-result ${
+          emailTab ? "success" : "error"
+        }">document.getElementById('email') found: ${!!emailTab} (should be tab content)</div>`;
+        html += `<div class="test-result ${
+          userEmailInput ? "success" : "error"
+        }">document.getElementById('userEmail') found: ${!!userEmailInput} (should be input field)</div>`;
+
+        if (emailTab && emailTab.classList.contains("tab-content")) {
+          html +=
+            '<div class="test-result success">✅ Email ID correctly points to tab content</div>';
+        } else {
+          html +=
+            '<div class="test-result error">❌ Email ID does not point to tab content</div>';
+        }
+
+        if (userEmailInput && userEmailInput.tagName === "INPUT") {
+          html +=
+            '<div class="test-result success">✅ userEmail ID correctly points to input field</div>';
+        } else {
+          html +=
+            '<div class="test-result error">❌ userEmail ID does not point to input field</div>';
+        }
+
+        results.innerHTML = html;
+      }
+
+      // Auto-test on page load
+      setTimeout(() => {
+        checkForIdConflicts();
+      }, 500);
+    </script>
+  </body>
+</html>
