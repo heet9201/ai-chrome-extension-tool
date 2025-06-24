@@ -1,316 +1,475 @@
-/* Content Script Styles for LinkedIn Job Assistant */
+/* Content Script Styles for LinkedIn Job Assistant - Using Design System */
+
+/* Note: We need to use !important since these styles are injected into existing pages */
+
+/* Import design tokens */
+:root {
+    --color-primary-500: #0ea5e9;
+    --color-primary-600: #0284c7;
+    --color-primary-700: #0369a1;
+    --color-primary-800: #075985;
+    --color-white: #ffffff;
+    --color-neutral-50: #f8fafc;
+    --color-neutral-100: #f1f5f9;
+    --color-neutral-200: #e2e8f0;
+    --color-neutral-700: #334155;
+    --color-neutral-800: #1e293b;
+    --font-family-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --transition-normal: 300ms ease;
+    --z-index-overlay: 1040;
+    --z-index-modal: 1050;
+}
+
+/* Enhanced dark mode support for content script */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-primary-500: #60a5fa;
+        --color-primary-600: #3b82f6;
+        --color-primary-700: #2563eb;
+        --color-primary-800: #1d4ed8;
+        --color-white: #1e293b;
+        --color-neutral-50: #334155;
+        --color-neutral-100: #475569;
+        --color-neutral-200: #64748b;
+        --color-neutral-700: #cbd5e1;
+        --color-neutral-800: #f1f5f9;
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+    }
+}
 
 /* Floating Button Styles */
 #job-assistant-btn {
-  position: fixed !important;
-  top: 50% !important;
-  right: 20px !important;
-  transform: translateY(-50%) !important;
-  background: linear-gradient(135deg, #0077b5, #005582) !important;
-  color: white !important;
-  padding: 12px 16px !important;
-  border-radius: 25px !important;
-  cursor: pointer !important;
-  z-index: 10000 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  box-shadow: 0 4px 12px rgba(0, 119, 181, 0.3) !important;
-  transition: all 0.3s ease !important;
-  min-width: 140px !important;
-  justify-content: center !important;
-  border: none !important;
-  text-decoration: none !important;
+    position: fixed !important;
+    top: 50% !important;
+    right: 20px !important;
+    transform: translateY(-50%) !important;
+    background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700)) !important;
+    color: var(--color-white) !important;
+    padding: 14px 20px !important;
+    border-radius: 25px !important;
+    cursor: pointer !important;
+    z-index: calc(var(--z-index-overlay) + 1) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    font-family: var(--font-family-primary) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    box-shadow: var(--shadow-lg) !important;
+    transition: all var(--transition-normal) !important;
+    min-width: 150px !important;
+    justify-content: center !important;
+    border: none !important;
+    text-decoration: none !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+#job-assistant-btn::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-800)) !important;
+    border-radius: 25px !important;
+    opacity: 0 !important;
+    transition: opacity var(--transition-normal) !important;
 }
 
 #job-assistant-btn:hover {
-  transform: translateY(-50%) scale(1.05) !important;
-  box-shadow: 0 6px 20px rgba(0, 119, 181, 0.4) !important;
+    transform: translateY(-50%) scale(1.05) !important;
+    box-shadow: var(--shadow-xl) !important;
+}
+
+#job-assistant-btn:hover::before {
+    opacity: 1 !important;
 }
 
 #job-assistant-btn .job-assistant-icon {
-  font-size: 16px !important;
+    font-size: 18px !important;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2)) !important;
+    z-index: 1 !important;
+    position: relative !important;
 }
 
 #job-assistant-btn .job-assistant-text {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    z-index: 1 !important;
+    position: relative !important;
+    letter-spacing: 0.025em !important;
 }
 
 /* Modal Backdrop */
 #job-assistant-modal .modal-backdrop {
-  background: rgba(0, 0, 0, 0.5) !important;
-  width: 100% !important;
-  height: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 20px !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(8px) !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px !important;
+    z-index: var(--z-index-modal) !important;
 }
 
 /* Modal Content */
 #job-assistant-modal .modal-content {
-  background: white !important;
-  border-radius: 12px !important;
-  max-width: 600px !important;
-  width: 100% !important;
-  max-height: 80vh !important;
-  overflow-y: auto !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    background: var(--color-white) !important;
+    border-radius: 16px !important;
+    max-width: 700px !important;
+    width: 100% !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    box-shadow: var(--shadow-xl) !important;
+    font-family: var(--font-family-primary) !important;
+    border: 1px solid var(--color-neutral-200) !important;
+    animation: modalSlideUp 0.3s ease !important;
+}
+
+@keyframes modalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* Modal Header */
 #job-assistant-modal .modal-header {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: 20px !important;
-  border-bottom: 1px solid #eee !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 24px !important;
+    border-bottom: 1px solid var(--color-neutral-200) !important;
+    background: var(--color-neutral-50) !important;
+    border-radius: 16px 16px 0 0 !important;
 }
 
 #job-assistant-modal .modal-header h3 {
-  margin: 0 !important;
-  color: #333 !important;
-  font-size: 18px !important;
-  font-weight: 600 !important;
+    margin: 0 !important;
+    color: var(--color-neutral-800) !important;
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+#job-assistant-modal .modal-header h3::before {
+    content: '🤖' !important;
+    font-size: 24px !important;
 }
 
 #job-assistant-modal .close-btn {
-  background: none !important;
-  border: none !important;
-  font-size: 24px !important;
-  cursor: pointer !important;
-  color: #999 !important;
-  padding: 0 !important;
-  line-height: 1 !important;
+    background: var(--color-neutral-100) !important;
+    border: 1px solid var(--color-neutral-200) !important;
+    font-size: 20px !important;
+    cursor: pointer !important;
+    color: var(--color-neutral-700) !important;
+    padding: 8px !important;
+    line-height: 1 !important;
+    border-radius: 8px !important;
+    transition: all var(--transition-normal) !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 #job-assistant-modal .close-btn:hover {
-  color: #333 !important;
+    background: var(--color-neutral-200) !important;
+    color: var(--color-neutral-800) !important;
+    transform: scale(1.1) !important;
 }
 
 /* Modal Body */
 #job-assistant-modal .modal-body {
-  padding: 20px !important;
+    padding: 24px !important;
 }
 
 #job-assistant-modal .status-section {
-  margin-bottom: 20px !important;
+    margin-bottom: var(--spacing-5) !important;
 }
 
 #job-assistant-modal .status-badge {
-  display: inline-block !important;
-  padding: 6px 12px !important;
-  border-radius: 20px !important;
-  font-weight: 500 !important;
-  font-size: 12px !important;
-  text-transform: uppercase !important;
-  margin-bottom: 10px !important;
+    display: inline-block !important;
+    padding: 8px 16px !important;
+    border-radius: 25px !important;
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    margin-bottom: 12px !important;
+    letter-spacing: 0.05em !important;
+    border: 1px solid !important;
 }
 
 #job-assistant-modal .status-badge.relevant {
-  background: #d4edda !important;
-  color: #155724 !important;
+    background: var(--color-success-100) !important;
+    color: var(--color-success-800) !important;
+    border-color: var(--color-success-200) !important;
 }
 
-#job-assistant-modal .status-badge.not.relevant {
-  background: #f8d7da !important;
-  color: #721c24 !important;
+#job-assistant-modal .status-badge.not-relevant {
+    background: var(--color-error-100) !important;
+    color: var(--color-error-800) !important;
+    border-color: var(--color-error-200) !important;
 }
 
 #job-assistant-modal .reason {
-  color: #666 !important;
-  font-size: 14px !important;
-  line-height: 1.4 !important;
-  margin: 0 !important;
+    color: var(--color-neutral-700) !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    background: var(--color-neutral-50) !important;
+    border-radius: 12px !important;
+    border-left: 4px solid var(--color-primary-500) !important;
 }
 
 /* Contact and Email Sections */
 #job-assistant-modal .contact-section,
 #job-assistant-modal .email-section {
-  margin: 20px 0 !important;
+    margin: 24px 0 !important;
 }
 
 #job-assistant-modal .contact-section h4,
 #job-assistant-modal .email-section h4 {
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  margin-bottom: 10px !important;
-  color: #333 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    margin-bottom: 12px !important;
+    color: var(--color-neutral-800) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#job-assistant-modal .contact-section h4::before {
+    content: '📧' !important;
+}
+
+#job-assistant-modal .email-section h4::before {
+    content: '✉️' !important;
 }
 
 #job-assistant-modal .email-preview {
-  background: #f8f9fa !important;
-  padding: 15px !important;
-  border-radius: 8px !important;
-  margin: 10px 0 !important;
+    background: var(--color-primary-50) !important;
+    padding: 20px !important;
+    border-radius: 12px !important;
+    margin: 12px 0 !important;
+    border: 1px solid var(--color-primary-200) !important;
 }
 
 #job-assistant-modal .email-preview p {
-  margin: 0 0 10px 0 !important;
-  font-size: 14px !important;
+    margin: 0 0 12px 0 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
 }
 
 #job-assistant-modal .email-body {
-  margin-top: 10px !important;
-  line-height: 1.5 !important;
-  color: #555 !important;
-  white-space: pre-line !important;
-  font-size: 13px !important;
+    margin-top: 12px !important;
+    line-height: 1.6 !important;
+    color: var(--color-neutral-700) !important;
+    white-space: pre-line !important;
+    font-size: 13px !important;
+    padding: 12px !important;
+    background: var(--color-white) !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--color-primary-200) !important;
 }
 
 /* Action Buttons */
 #job-assistant-modal .action-buttons {
-  display: flex !important;
-  gap: 10px !important;
-  margin-top: 20px !important;
-  flex-wrap: wrap !important;
+    display: flex !important;
+    gap: 12px !important;
+    margin-top: 24px !important;
+    flex-wrap: wrap !important;
 }
 
 #job-assistant-modal .action-buttons button {
-  padding: 10px 16px !important;
-  border: none !important;
-  border-radius: 6px !important;
-  cursor: pointer !important;
-  font-weight: 500 !important;
-  transition: all 0.2s ease !important;
-  font-size: 14px !important;
-  text-decoration: none !important;
+    padding: 12px 20px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    font-weight: 500 !important;
+    transition: all var(--transition-normal) !important;
+    font-size: 14px !important;
+    text-decoration: none !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+#job-assistant-modal .action-buttons button::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: -100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent) !important;
+    transition: left 0.5s ease !important;
+}
+
+#job-assistant-modal .action-buttons button:hover::before {
+    left: 100% !important;
 }
 
 #job-assistant-modal .btn-primary {
-  background: #0077b5 !important;
-  color: white !important;
+    background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-700)) !important;
+    color: var(--color-white) !important;
+    box-shadow: var(--shadow-lg) !important;
 }
 
 #job-assistant-modal .btn-secondary {
-  background: #6c757d !important;
-  color: white !important;
+    background: linear-gradient(135deg, var(--color-neutral-600), var(--color-neutral-700)) !important;
+    color: var(--color-white) !important;
 }
 
 #job-assistant-modal .btn-success {
-  background: #28a745 !important;
-  color: white !important;
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    color: var(--color-white) !important;
 }
 
 #job-assistant-modal .action-buttons button:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-xl) !important;
 }
 
 /* Animations */
 @keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 @keyframes slideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
 }
 
 /* Notification Styles */
 .job-assistant-notification {
-  position: fixed !important;
-  top: 20px !important;
-  right: 20px !important;
-  padding: 12px 20px !important;
-  border-radius: 6px !important;
-  z-index: 100001 !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-  animation: slideIn 0.3s ease !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    padding: 16px 24px !important;
+    border-radius: 12px !important;
+    z-index: calc(var(--z-index-modal) + 10) !important;
+    font-family: var(--font-family-primary) !important;
+    box-shadow: var(--shadow-xl) !important;
+    animation: slideIn 0.3s ease !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    border: 1px solid !important;
+    backdrop-filter: blur(10px) !important;
 }
 
 .job-assistant-notification.success {
-  background: #28a745 !important;
-  color: white !important;
+    background: #22c55e !important;
+    color: var(--color-white) !important;
+    border-color: #16a34a !important;
 }
 
 .job-assistant-notification.error {
-  background: #dc3545 !important;
-  color: white !important;
+    background: #ef4444 !important;
+    color: var(--color-white) !important;
+    border-color: #dc2626 !important;
 }
 
 .job-assistant-notification.warning {
-  background: #ffc107 !important;
-  color: #000 !important;
+    background: #f59e0b !important;
+    color: #78350f !important;
+    border-color: #d97706 !important;
 }
 
 .job-assistant-notification.info {
-  background: #0077b5 !important;
-  color: white !important;
+    background: var(--color-primary-500) !important;
+    color: var(--color-white) !important;
+    border-color: var(--color-primary-600) !important;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  #job-assistant-btn {
-    right: 10px !important;
-    padding: 10px 12px !important;
-    min-width: 120px !important;
-  }
-  
-  #job-assistant-modal .modal-content {
-    margin: 10px !important;
-    max-height: 90vh !important;
-  }
-  
-  #job-assistant-modal .modal-header,
-  #job-assistant-modal .modal-body {
-    padding: 15px !important;
-  }
-  
-  #job-assistant-modal .action-buttons {
-    flex-direction: column !important;
-  }
-  
-  #job-assistant-modal .action-buttons button {
-    width: 100% !important;
-  }
+    #job-assistant-btn {
+        right: 10px !important;
+        padding: 12px 16px !important;
+        min-width: 130px !important;
+        font-size: 13px !important;
+    }
+    
+    #job-assistant-modal .modal-content {
+        margin: 10px !important;
+        max-height: 90vh !important;
+        border-radius: 12px !important;
+    }
+    
+    #job-assistant-modal .modal-header,
+    #job-assistant-modal .modal-body {
+        padding: 20px !important;
+    }
+    
+    #job-assistant-modal .action-buttons {
+        flex-direction: column !important;
+    }
+    
+    #job-assistant-modal .action-buttons button {
+        width: 100% !important;
+    }
+
+    .job-assistant-notification {
+        right: 10px !important;
+        left: 10px !important;
+        width: auto !important;
+    }
 }
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
-  #job-assistant-btn {
-    border: 2px solid white !important;
-  }
-  
-  #job-assistant-modal .modal-content {
-    border: 2px solid #333 !important;
-  }
+    #job-assistant-btn {
+        border: 2px solid var(--color-white) !important;
+    }
+    
+    #job-assistant-modal .modal-content {
+        border: 2px solid var(--color-neutral-800) !important;
+    }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  #job-assistant-btn,
-  #job-assistant-modal .action-buttons button {
-    transition: none !important;
-  }
-  
-  #job-assistant-btn:hover,
-  #job-assistant-modal .action-buttons button:hover {
-    transform: none !important;
-  }
-  
-  .job-assistant-notification {
-    animation: none !important;
-  }
+    #job-assistant-btn,
+    #job-assistant-modal .action-buttons button {
+        transition: none !important;
+    }
+    
+    #job-assistant-btn:hover,
+    #job-assistant-modal .action-buttons button:hover {
+        transform: none !important;
+    }
+    
+    .job-assistant-notification {
+        animation: none !important;
+    }
+
+    #job-assistant-modal .modal-content {
+        animation: none !important;
+    }
 }

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedIn Job Assistant - Theme Demo</title>
+    <link rel="stylesheet" href="design-system.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: var(--spacing-6);
+        font-family: var(--font-family-primary);
+        background: var(--color-surface-secondary);
+        color: var(--color-text-primary);
+        transition: all var(--transition-normal);
+      }
+
+      .demo-container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .demo-header {
+        text-align: center;
+        margin-bottom: var(--spacing-8);
+        padding: var(--spacing-6);
+        background: linear-gradient(
+          135deg,
+          var(--color-primary-500) 0%,
+          var(--color-primary-700) 100%
+        );
+        color: var(--color-text-inverse);
+        border-radius: var(--radius-xl);
+        position: relative;
+      }
+
+      .demo-controls {
+        position: absolute;
+        top: var(--spacing-4);
+        right: var(--spacing-4);
+      }
+
+      .demo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--spacing-6);
+        margin-bottom: var(--spacing-8);
+      }
+
+      .demo-section {
+        background: var(--color-surface-primary);
+        border-radius: var(--radius-xl);
+        padding: var(--spacing-6);
+        box-shadow: var(--shadow-base);
+        border: 1px solid var(--color-neutral-300);
+      }
+
+      .demo-section h3 {
+        margin-top: 0;
+        color: var(--color-text-primary);
+        font-size: var(--font-size-lg);
+        font-weight: var(--font-weight-semibold);
+      }
+
+      .button-group {
+        display: flex;
+        gap: var(--spacing-3);
+        flex-wrap: wrap;
+        margin-bottom: var(--spacing-4);
+      }
+
+      .badge-group {
+        display: flex;
+        gap: var(--spacing-2);
+        flex-wrap: wrap;
+        margin-bottom: var(--spacing-4);
+      }
+
+      .form-demo {
+        margin-bottom: var(--spacing-4);
+      }
+
+      .color-palette {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+        gap: var(--spacing-2);
+      }
+
+      .color-swatch {
+        aspect-ratio: 1;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-neutral-300);
+        display: flex;
+        align-items: flex-end;
+        padding: var(--spacing-1);
+        font-size: var(--font-size-xs);
+        color: var(--color-text-inverse);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+
+      .color-primary {
+        background: var(--color-primary-500);
+      }
+      .color-secondary {
+        background: var(--color-secondary-500);
+      }
+      .color-success {
+        background: var(--color-success-500);
+      }
+      .color-warning {
+        background: var(--color-warning-500);
+      }
+      .color-error {
+        background: var(--color-error-500);
+      }
+
+      .spinner-demo {
+        display: flex;
+        justify-content: center;
+        margin: var(--spacing-4) 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-container">
+      <header class="demo-header">
+        <div class="demo-controls">
+          <button id="themeToggle" class="theme-toggle" title="Toggle Theme">
+            <span class="theme-toggle-icon"></span>
+          </button>
+        </div>
+        <h1>🤖 LinkedIn Job Assistant</h1>
+        <p>Design System & Theme Demo</p>
+      </header>
+
+      <div class="demo-grid">
+        <!-- Buttons Section -->
+        <div class="demo-section">
+          <h3>🔘 Buttons</h3>
+          <div class="button-group">
+            <button class="btn btn-primary">Primary</button>
+            <button class="btn btn-secondary">Secondary</button>
+            <button class="btn btn-outline">Outline</button>
+            <button class="btn btn-success">Success</button>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-primary btn-sm">Small</button>
+            <button class="btn btn-primary">Regular</button>
+            <button class="btn btn-primary btn-lg">Large</button>
+          </div>
+          <div class="button-group">
+            <button class="btn btn-primary" disabled>Disabled</button>
+          </div>
+        </div>
+
+        <!-- Badges Section -->
+        <div class="demo-section">
+          <h3>🏷️ Badges</h3>
+          <div class="badge-group">
+            <span class="badge badge-success">Success</span>
+            <span class="badge badge-warning">Warning</span>
+            <span class="badge badge-error">Error</span>
+            <span class="badge badge-neutral">Neutral</span>
+          </div>
+        </div>
+
+        <!-- Forms Section -->
+        <div class="demo-section">
+          <h3>📝 Forms</h3>
+          <div class="form-demo">
+            <div class="form-group">
+              <label class="form-label" for="demo-input">Text Input</label>
+              <input
+                class="form-input"
+                id="demo-input"
+                type="text"
+                placeholder="Enter some text..."
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="demo-textarea">Textarea</label>
+              <textarea
+                class="form-input"
+                id="demo-textarea"
+                rows="3"
+                placeholder="Enter description..."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cards Section -->
+        <div class="demo-section">
+          <h3>🎴 Cards</h3>
+          <div class="card">
+            <div class="card-header">
+              <h4 style="margin: 0">Card Header</h4>
+            </div>
+            <div class="card-body">
+              <p style="margin: 0 0 var(--spacing-3) 0">
+                This is a card body with some sample content.
+              </p>
+              <button class="btn btn-primary btn-sm">Action</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Colors Section -->
+        <div class="demo-section">
+          <h3>🎨 Color Palette</h3>
+          <div class="color-palette">
+            <div class="color-swatch color-primary">Primary</div>
+            <div class="color-swatch color-secondary">Secondary</div>
+            <div class="color-swatch color-success">Success</div>
+            <div class="color-swatch color-warning">Warning</div>
+            <div class="color-swatch color-error">Error</div>
+          </div>
+        </div>
+
+        <!-- Loading Section -->
+        <div class="demo-section">
+          <h3>⏳ Loading</h3>
+          <div class="spinner-demo">
+            <div class="spinner"></div>
+          </div>
+          <p style="text-align: center; color: var(--color-text-secondary)">
+            Loading spinner animation
+          </p>
+        </div>
+      </div>
+
+      <!-- Typography Section -->
+      <div class="demo-section">
+        <h3>📚 Typography</h3>
+        <h1 style="margin: 0 0 var(--spacing-2) 0">Heading 1</h1>
+        <h2 style="margin: 0 0 var(--spacing-2) 0">Heading 2</h2>
+        <h3 style="margin: 0 0 var(--spacing-2) 0">Heading 3</h3>
+        <h4 style="margin: 0 0 var(--spacing-2) 0">Heading 4</h4>
+        <p class="text-primary">Primary text color</p>
+        <p class="text-secondary">Secondary text color</p>
+        <p class="text-tertiary">Tertiary text color</p>
+        <p><strong>Bold text</strong> and <em>italic text</em></p>
+      </div>
+    </div>
+
+    <script src="../utils/config.js"></script>
+    <script>
+      // Initialize theme system
+      document.addEventListener("DOMContentLoaded", () => {
+        // Initialize theme
+        if (typeof Config !== "undefined") {
+          Config.initTheme();
+        }
+
+        // Setup theme toggle
+        const themeToggle = document.getElementById("themeToggle");
+        if (themeToggle) {
+          themeToggle.addEventListener("click", () => {
+            if (typeof Config !== "undefined") {
+              const newTheme = Config.toggleTheme();
+              console.log("Theme toggled to:", newTheme);
+
+              // Visual feedback
+              themeToggle.style.transform = "scale(0.9)";
+              setTimeout(() => {
+                themeToggle.style.transform = "";
+              }, 150);
+            }
+          });
+        }
+
+        // Listen for theme changes
+        window.addEventListener("themeChanged", (e) => {
+          console.log("Theme changed to:", e.detail.theme);
+        });
+      });
+    </script>
+  </body>
+</html>

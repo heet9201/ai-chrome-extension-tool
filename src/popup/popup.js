@@ -1,4 +1,15 @@
 // Popup Script for LinkedIn Job Assistant
+// Import configuration and design system
+import('../utils/config.js').then(module => {
+    if (module.default) {
+        window.Config = module.default;
+        console.log('Design system loaded:', Config.DESIGN);
+        Config.logConfig();
+    }
+}).catch(err => {
+    console.warn('Config module not available, using fallback');
+});
+
 class PopupController {
     constructor() {
         this.currentJobData = null;
@@ -12,6 +23,79 @@ class PopupController {
         this.setupEventListeners();
         this.updateUI();
         this.checkCurrentPage();
+        this.initializeDesignSystem();
+        this.initializeTheme();
+    }
+
+    // Initialize design system features
+    initializeDesignSystem() {
+        // Add smooth transitions to all elements
+        document.body.style.setProperty('--transition-duration', '300ms');
+    }
+
+    // Initialize theme system
+    initializeTheme() {
+        // Wait for config to be available
+        const initThemeWithConfig = () => {
+            if (window.Config) {
+                // Initialize theme from config
+                window.Config.initTheme();
+
+                // Update theme toggle icon immediately
+                this.updateThemeToggleIcon();
+
+                // Listen for theme changes (including cross-tab sync)
+                window.addEventListener('themeChanged', (e) => {
+                    console.log('Popup: Theme changed to:', e.detail.theme, 'Source:', e.detail.source || 'local');
+                    this.updateThemeToggleIcon();
+                });
+
+                // Setup theme toggle button
+                const themeToggle = document.getElementById('themeToggle');
+                if (themeToggle) {
+                    themeToggle.addEventListener('click', () => {
+                        if (window.Config) {
+                            const newTheme = window.Config.toggleTheme();
+                            console.log('Popup: Toggled to theme:', newTheme);
+
+                            // Add a subtle animation feedback
+                            themeToggle.style.transform = 'scale(0.9)';
+                            setTimeout(() => {
+                                themeToggle.style.transform = '';
+                            }, 150);
+                        }
+                    });
+                }
+            } else {
+                // Config not ready yet, wait a bit
+                setTimeout(initThemeWithConfig, 100);
+            }
+        };
+
+        initThemeWithConfig();
+    }
+
+    // Update theme toggle icon based on current theme
+    updateThemeToggleIcon() {
+        const themeToggleIcon = document.querySelector('.theme-toggle-icon');
+        if (themeToggleIcon && window.Config) {
+            const currentTheme = window.Config.getTheme();
+            // Clear any existing content first to prevent duplication
+            themeToggleIcon.textContent = '';
+            // Show sun icon when in dark mode (to switch to light), moon when in light mode (to switch to dark)
+            themeToggleIcon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+
+            // Update title attribute for better UX
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.title = currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+            }
+
+            console.log('Popup theme icon updated to:', themeToggleIcon.textContent, 'for theme:', currentTheme);
+        } else if (!themeToggleIcon) {
+            // If icon element is not ready yet, try again in a moment
+            setTimeout(() => this.updateThemeToggleIcon(), 50);
+        }
     }
 
     // Setup event listeners
@@ -281,7 +365,17 @@ class PopupController {
 
     // Hide notification
     hideNotification() {
-        document.getElementById('notification').style.display = 'none';
+        const notification = document.getElementById('notification');
+        if (notification) {
+            // Add hide animation class
+            notification.classList.add('hide');
+
+            // Wait for animation to complete before hiding
+            setTimeout(() => {
+                notification.style.display = 'none';
+                notification.className = 'notification';
+            }, 300); // Match animation duration
+        }
     }
 
     // Open settings

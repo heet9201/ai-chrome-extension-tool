@@ -13,10 +13,76 @@ class OptionsController {
         this.setupTabs();
         this.setupFileUpload();
         this.initializeApiKeyInputs();
+        this.initializeTheme();
         await this.loadUserProfile();
         await this.loadAiSettings();
         this.populateForm();
         this.updateLastUpdated();
+    }
+
+    // Initialize theme system
+    initializeTheme() {
+        // Wait for config to be available
+        const initThemeWithConfig = () => {
+            if (typeof Config !== 'undefined') {
+                // Initialize theme from config
+                Config.initTheme();
+
+                // Update theme toggle icon immediately
+                this.updateThemeToggleIcon();
+
+                // Listen for theme changes (including cross-tab sync)
+                window.addEventListener('themeChanged', (e) => {
+                    console.log('Options: Theme changed to:', e.detail.theme, 'Source:', e.detail.source || 'local');
+                    this.updateThemeToggleIcon();
+                });
+
+                // Setup theme toggle button
+                const themeToggle = document.getElementById('themeToggle');
+                if (themeToggle) {
+                    themeToggle.addEventListener('click', () => {
+                        if (typeof Config !== 'undefined') {
+                            const newTheme = Config.toggleTheme();
+                            console.log('Options: Toggled to theme:', newTheme);
+
+                            // Add a subtle animation feedback
+                            themeToggle.style.transform = 'scale(0.9)';
+                            setTimeout(() => {
+                                themeToggle.style.transform = '';
+                            }, 150);
+                        }
+                    });
+                }
+            } else {
+                // Config not ready yet, wait a bit
+                setTimeout(initThemeWithConfig, 100);
+            }
+        };
+
+        initThemeWithConfig();
+    }
+
+    // Update theme toggle icon based on current theme
+    updateThemeToggleIcon() {
+        const themeToggleIcon = document.querySelector('.theme-toggle-icon');
+        if (themeToggleIcon && typeof Config !== 'undefined') {
+            const currentTheme = Config.getTheme();
+            // Clear any existing content first to prevent duplication
+            themeToggleIcon.textContent = '';
+            // Show sun icon when in dark mode (to switch to light), moon when in light mode (to switch to dark)
+            themeToggleIcon.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+
+            // Update title attribute for better UX
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.title = currentTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+            }
+
+            console.log('Options theme icon updated to:', themeToggleIcon.textContent, 'for theme:', currentTheme);
+        } else if (!themeToggleIcon) {
+            // If icon element is not ready yet, try again in a moment
+            setTimeout(() => this.updateThemeToggleIcon(), 50);
+        }
     }
 
     // Initialize API key inputs to proper state
@@ -599,7 +665,7 @@ class OptionsController {
         const saveBtn = document.getElementById('saveBtn');
         if (saveBtn) {
             saveBtn.textContent = 'Save Changes*';
-            saveBtn.style.background = '#ffc107';
+            saveBtn.classList.add('btn-unsaved');
         }
     }
 
@@ -608,7 +674,7 @@ class OptionsController {
         const saveBtn = document.getElementById('saveBtn');
         if (saveBtn) {
             saveBtn.textContent = 'Save All Settings';
-            saveBtn.style.background = '';
+            saveBtn.classList.remove('btn-unsaved');
         }
     }
 
@@ -827,8 +893,7 @@ class OptionsController {
                 // Reset save button to normal state
                 const saveBtn = document.getElementById('saveAiBtn');
                 if (saveBtn) {
-                    saveBtn.style.background = '';
-                    saveBtn.style.color = '';
+                    saveBtn.classList.remove('btn-unsaved');
                     saveBtn.textContent = '💾 Save AI Settings';
                 }
 
@@ -1426,7 +1491,7 @@ class OptionsController {
             // Set message and type
             notificationText.textContent = message;
             notification.className = `notification ${type}`;
-            notification.style.display = 'block';
+            notification.style.display = 'flex';
 
             // Auto-hide after 5 seconds for success/info messages
             if (type === 'success' || type === 'info') {
@@ -1445,8 +1510,14 @@ class OptionsController {
     hideNotification() {
         const notification = document.getElementById('notification');
         if (notification) {
-            notification.style.display = 'none';
-            notification.className = 'notification';
+            // Add hide animation class
+            notification.classList.add('hide');
+
+            // Wait for animation to complete before hiding
+            setTimeout(() => {
+                notification.style.display = 'none';
+                notification.className = 'notification';
+            }, 300); // Match animation duration
         }
     }
 

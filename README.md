@@ -1,8 +1,18 @@
 # 🤖 LinkedIn Job Assistant
 
-An intelligent Chrome extension that automates LinkedIn job applications using AI-powered analysis and personalized email generation.
+An intelligent Chrome extension that automates LinkedIn job applications using AI-powered analysis and personalized email generation. Features a modern, accessible design system for consistent user experience.
 
 ## 🌟 Features
+
+### 🎨 Modern Design System
+
+- **Consistent UI**: Professional design language across all components
+- **Dark/Light Mode**: Seamless theme switching with system preference detection
+- **Accessibility First**: WCAG AA compliant with high contrast and reduced motion support
+- **Responsive Design**: Optimized for all screen sizes and devices
+- **Modern Aesthetics**: Clean gradients, smooth animations, and thoughtful spacing
+- **Customizable**: Centralized color palette and design tokens for easy branding
+- **Theme Toggle**: Easy switching between light and dark modes with visual feedback
 
 ### 🔍 Smart Job Analysis
 
@@ -40,7 +50,11 @@ An intelligent Chrome extension that automates LinkedIn job applications using A
 
 ```
 src/
-├── background/         # Service worker for API communication
+├── styles/            # Modern design system
+│   └── design-system.css # Core design tokens and utilities
+├── utils/             # Shared utilities and configuration
+│   └── config.js      # Design system configuration and backend URLs
+├── background/        # Service worker for API communication
 │   └── background.js
 ├── content/           # LinkedIn page interaction and parsing
 │   ├── content.js     # Main content script
@@ -167,6 +181,34 @@ graph TD
     I --> J[User Reviews & Sends]
     J --> K[Email Service Sends Application]
 ```
+
+## 🎨 Theme System
+
+### Dark/Light Mode Support
+
+The extension features a comprehensive theme system with seamless switching between light and dark modes:
+
+- **Automatic Detection**: Respects your system's color scheme preference
+- **Manual Toggle**: Click the theme toggle button (🌙/☀️) in the popup or options page
+- **Persistent Preference**: Your theme choice is saved and remembered
+- **Professional Design**: Dark mode uses carefully selected colors for optimal readability
+- **Consistent Experience**: Theme applies across all extension components
+
+### Using the Theme Toggle
+
+1. **In Popup**: Click the moon/sun icon in the header next to the settings button
+2. **In Options**: Click the theme toggle in the top-right corner of the options page
+3. **System Auto-Switch**: The extension automatically follows your system theme preference unless manually overridden
+
+### Theme Demo
+
+View the design system and test theme switching:
+
+```bash
+open src/styles/theme-demo.html
+```
+
+The demo showcases all UI components in both light and dark modes with real-time switching.
 
 ## 🔧 Configuration
 

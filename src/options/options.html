@@ -4,15 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LinkedIn Job Assistant - Settings</title>
+    <link rel="stylesheet" href="../styles/design-system.css" />
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
     <div class="container">
       <header class="header">
         <div class="header-content">
-          <div class="logo">
-            <span class="logo-icon">🤖</span>
-            <h1>LinkedIn Job Assistant</h1>
+          <div class="header-top">
+            <div class="logo">
+              <span class="logo-icon">🤖</span>
+              <h1>LinkedIn Job Assistant</h1>
+            </div>
+            <button id="themeToggle" class="theme-toggle" title="Toggle Theme">
+              <span class="theme-toggle-icon"></span>
+            </button>
           </div>
           <p class="subtitle">Customize your profile and preferences</p>
         </div>
@@ -681,8 +687,14 @@
 
     <!-- Notification Toast -->
     <div id="notification" class="notification" style="display: none">
-      <span id="notificationText"></span>
-      <button id="notificationClose">×</button>
+      <span id="notificationText" class="notification-text"></span>
+      <button
+        id="notificationClose"
+        type="button"
+        aria-label="Close notification"
+      >
+        ×
+      </button>
     </div>
 
     <script src="../utils/config.js"></script>
