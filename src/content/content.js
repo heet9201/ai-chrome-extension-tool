@@ -12,6 +12,7 @@ class LinkedInJobAssistant {
       this.isAnalyzing = false;
       this.currentJobData = null;
       this.contextValid = true;
+      this.currentTheme = 'dark'; // Default to dark mode
       this.init();
     } catch (error) {
       console.error('Error initializing LinkedInJobAssistant:', error);
@@ -24,9 +25,51 @@ class LinkedInJobAssistant {
       this.setupMessageHandlers();
       this.observePageChanges();
       this.setupContextValidator();
+      this.initTheme();
       console.log('LinkedIn Job Assistant initialized successfully');
     } catch (error) {
       console.error('Error in content script initialization:', error);
+    }
+  }
+
+  // Initialize theme system
+  initTheme() {
+    try {
+      // Get theme from localStorage (set by popup/options)
+      const savedTheme = localStorage.getItem('linkedin-assistant-theme');
+      this.currentTheme = savedTheme || 'dark';
+
+      // Listen for theme changes from other parts of the extension
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'linkedin-assistant-theme' && e.newValue) {
+          this.currentTheme = e.newValue;
+          this.updateModalTheme();
+        }
+      });
+
+      // Listen for BroadcastChannel theme updates
+      if (typeof BroadcastChannel !== 'undefined') {
+        this.themeChannel = new BroadcastChannel('theme-sync');
+        this.themeChannel.addEventListener('message', (event) => {
+          if (event.data.type === 'theme-change') {
+            this.currentTheme = event.data.theme;
+            this.updateModalTheme();
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error initializing theme:', error);
+      this.currentTheme = 'dark'; // Fallback to dark
+    }
+  }
+
+  // Update modal theme when theme changes
+  updateModalTheme() {
+    const modal = document.getElementById('job-assistant-modal');
+    if (modal) {
+      modal.setAttribute('data-theme', this.currentTheme);
+      // Apply theme class to document root for CSS variable inheritance
+      document.documentElement.setAttribute('data-theme', this.currentTheme);
     }
   }
 
@@ -47,6 +90,11 @@ class LinkedInJobAssistant {
     try {
       if (this.contextChecker) {
         clearInterval(this.contextChecker);
+      }
+
+      // Close theme channel
+      if (this.themeChannel) {
+        this.themeChannel.close();
       }
 
       const button = document.getElementById('job-assistant-btn');
@@ -237,6 +285,7 @@ class LinkedInJobAssistant {
 
     const modal = document.createElement('div');
     modal.id = 'job-assistant-modal';
+    modal.setAttribute('data-theme', this.currentTheme);
     modal.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal-content">
@@ -263,15 +312,15 @@ class LinkedInJobAssistant {
                   <h4>📄 Resume Analysis</h4>
                   <p><strong>Resume Skills Used:</strong> Yes (${analysisData.resume_skills_count || 0} skills)</p>
                   <p><strong>Relevant Skills:</strong> ${analysisData.relevant_resume_skills.slice(0, 5).join(', ')}${analysisData.relevant_resume_skills.length > 5 ? '...' : ''}</p>
-                  <small style="color: #28a745;">✨ Email generated using skills from your resume for better job matching</small>
+                  <small class="success-text">✨ Email generated using skills from your resume for better job matching</small>
                 </div>
               ` : (analysisData.has_resume === false ? `
-                <div class="resume-skills-info">
-                  <p style="color: #6c757d;"><small>💡 Upload a resume in settings for more personalized applications</small></p>
+                <div class="resume-skills-info no-resume">
+                  <p class="muted-text"><small>💡 Upload a resume in settings for more personalized applications</small></p>
                 </div>
               ` : `
-                <div class="resume-skills-info">
-                  <p style="color: #6c757d;"><small>📄 Resume available but no matching skills found for this job</small></p>
+                <div class="resume-skills-info no-resume">
+                  <p class="muted-text"><small>📄 Resume available but no matching skills found for this job</small></p>
                 </div>
               `)}
               
@@ -321,265 +370,27 @@ class LinkedInJobAssistant {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
 
-    // Add styles
+    // Minimal styles - rely on content.css for proper theming
     const styles = `
       <style>
-        #job-assistant-modal .modal-backdrop {
-          background: rgba(0, 0, 0, 0.5);
+        /* Basic modal positioning - let content.css handle theming */
+        #job-assistant-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
           width: 100%;
           height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-        }
-        
-        #job-assistant-modal .modal-content {
-          background: white;
-          border-radius: 12px;
-          max-width: 600px;
-          width: 100%;
-          max-height: 80vh;
-          overflow-y: auto;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        #job-assistant-modal .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px;
-          border-bottom: 1px solid #eee;
-        }
-        
-        #job-assistant-modal .modal-header h3 {
-          margin: 0;
-          color: #333;
-        }
-        
-        #job-assistant-modal .close-btn {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #999;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-        }
-        
-        #job-assistant-modal .close-btn:hover {
-          background: #f0f0f0;
-          color: #333;
-        }
-        
-        #job-assistant-modal .modal-body {
-          padding: 20px;
-        }
-        
-        #job-assistant-modal .status-badge {
-          display: inline-block;
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-weight: 500;
-          font-size: 12px;
-          text-transform: uppercase;
-          margin-bottom: 10px;
-        }
-        
-        #job-assistant-modal .status-badge.relevant {
-          background: #d4edda;
-          color: #155724;
-        }
-        
-        #job-assistant-modal .status-badge.not.relevant {
-          background: #f8d7da;
-          color: #721c24;
-        }
-        
-        #job-assistant-modal .email-preview {
-          background: #f8f9fa;
-          padding: 15px;
-          border-radius: 8px;
-          margin: 10px 0;
-        }
-        
-        #job-assistant-modal .email-body {
-          margin-top: 10px;
-          line-height: 1.5;
-        }
-        
-        /* Resume Skills Info Styles */
-        #job-assistant-modal .resume-skills-info {
-          background: #e8f5e8;
-          padding: 15px;
-          border-radius: 8px;
-          margin: 10px 0;
-          border-left: 4px solid #28a745;
-        }
-        
-        #job-assistant-modal .resume-skills-info h4 {
-          margin: 0 0 10px 0;
-          color: #155724;
-        }
-        
-        /* Inline Editing Styles */
-        .editable-subject,
-        .editable-body {
-          cursor: pointer;
-          padding: 8px;
-          border-radius: 4px;
-          transition: all 0.2s ease;
-          min-height: 20px;
-          position: relative;
-          display: block;
-          line-height: 1.5;
-        }
-        
-        .editable-subject {
-          display: inline-block;
-          min-height: 24px;
-        }
-        
-        .editable-subject:hover,
-        .editable-body:hover {
-          background: #e9ecef;
-          outline: 2px dashed #0077b5;
-        }
-        
-        .editable-subject:hover::after,
-        .editable-body:hover::after {
-          content: "✏️ Click to edit";
-          position: absolute;
-          top: -25px;
-          right: 0;
-          background: #0077b5;
-          color: white;
-          padding: 2px 6px;
-          border-radius: 3px;
-          font-size: 11px;
-          font-weight: 500;
-          white-space: nowrap;
-          z-index: 1000;
-        }
-        
-        .editing-input {
-          width: 100%;
-          padding: 8px;
-          border: 2px solid #0077b5;
-          border-radius: 4px;
-          font-size: 14px;
-          font-family: inherit;
-          background: white;
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
-          box-sizing: border-box;
-        }
-        
-        .editing-textarea {
-          width: 100%;
-          padding: 8px;
-          border: 2px solid #0077b5;
-          border-radius: 4px;
-          font-size: 14px;
-          font-family: inherit;
-          background: white;
-          outline: none;
-          resize: vertical;
-          line-height: 1.5;
-          box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
-          box-sizing: border-box;
-        }
-        
-        .edit-actions {
-          margin-top: 10px;
-          display: flex;
-          gap: 8px;
-        }
-        
-        .btn-save-inline,
-        .btn-cancel-inline {
-          padding: 6px 12px;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 500;
-          transition: all 0.2s ease;
-        }
-        
-        .btn-save-inline {
-          background: #28a745;
-          color: white;
-        }
-        
-        .btn-save-inline:hover {
-          background: #218838;
-        }
-        
-        .btn-cancel-inline {
-          background: #6c757d;
-          color: white;
-        }
-        
-        .btn-cancel-inline:hover {
-          background: #5a6268;
-        }
-        
-        #job-assistant-modal .action-buttons {
-          display: flex;
-          gap: 10px;
-          margin-top: 20px;
-          flex-wrap: wrap;
-        }
-        
-        #job-assistant-modal .action-buttons button {
-          padding: 10px 16px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-weight: 500;
-          transition: all 0.2s ease;
-        }
-        
-        #job-assistant-modal .btn-primary {
-          background: #0077b5;
-          color: white;
-        }
-        
-        #job-assistant-modal .btn-secondary {
-          background: #6c757d;
-          color: white;
-        }
-        
-        #job-assistant-modal .btn-success {
-          background: #28a745;
-          color: white;
-        }
-        
-        #job-assistant-modal .btn-edit {
-          background: #ffc107;
-          color: #000;
-          font-weight: 600;
-        }
-        
-        #job-assistant-modal .btn-edit:hover {
-          background: #e0a800;
-        }
-        
-        #job-assistant-modal .action-buttons button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+          z-index: 100000;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
       </style>
     `;
 
     modal.innerHTML = styles + modal.innerHTML;
     document.body.appendChild(modal);
+
+    // Apply theme attribute for CSS variable inheritance
+    document.documentElement.setAttribute('data-theme', this.currentTheme);
 
     // Add event listeners for modal interactions
     this.setupModalEventListeners(modal, analysisData);
