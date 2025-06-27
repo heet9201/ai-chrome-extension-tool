@@ -21,6 +21,7 @@ class PopupController {
     async init() {
         await this.loadStats();
         this.setupEventListeners();
+        this.setupEmailEditing();
         this.updateUI();
         this.checkCurrentPage();
         this.initializeDesignSystem();
@@ -116,6 +117,10 @@ class PopupController {
 
         // Notification close
         document.getElementById('notificationClose').addEventListener('click', () => this.hideNotification());
+
+        // Email editing save/cancel buttons
+        document.getElementById('saveEmailBtn').addEventListener('click', () => this.saveEmailChanges());
+        document.getElementById('cancelEmailBtn').addEventListener('click', () => this.cancelEmailEditing());
     }
 
     // Check if current page is LinkedIn and update status
@@ -229,7 +234,7 @@ class PopupController {
 
             // Show email preview
             emailSubject.textContent = analysis.email_subject;
-            emailBody.textContent = analysis.email_body;
+            emailBody.innerHTML = analysis.email_body.replace(/\n/g, '<br>');
             emailPreview.style.display = 'block';
             actionButtons.style.display = 'block';
 
@@ -410,6 +415,193 @@ Tips:
 • Use the floating button on LinkedIn pages for quick access`;
 
         this.showNotification(helpText, 'info');
+    }
+
+    // Setup email editing functionality
+    setupEmailEditing() {
+        const editableSubject = document.getElementById('emailSubject');
+        const editableBody = document.getElementById('emailBody');
+        const editActions = document.querySelector('.edit-actions');
+
+        if (!editableSubject || !editableBody || !editActions) {
+            console.warn('Email editing elements not found');
+            return;
+        }
+
+        this.emailEditState = {
+            isEditing: false,
+            originalSubject: '',
+            originalBody: '',
+            currentEditInput: null,
+            currentEditTextarea: null
+        };
+
+        // Subject editing
+        editableSubject.addEventListener('click', () => this.startSubjectEdit());
+
+        // Body editing
+        editableBody.addEventListener('click', () => this.startBodyEdit());
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (this.emailEditState.isEditing) {
+                if (e.key === 'Enter' && this.emailEditState.currentEditInput) {
+                    e.preventDefault();
+                    this.saveEmailChanges();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    this.cancelEmailEditing();
+                }
+            }
+        });
+    }
+
+    // Start editing subject
+    startSubjectEdit() {
+        if (this.emailEditState.isEditing || !this.currentAnalysis) return;
+
+        const editableSubject = document.getElementById('emailSubject');
+        const editActions = document.querySelector('.edit-actions');
+
+        this.emailEditState.isEditing = true;
+        this.emailEditState.originalSubject = editableSubject.textContent;
+
+        const computedStyle = window.getComputedStyle(editableSubject);
+
+        const input = document.createElement('input');
+        input.className = 'editing-input';
+        input.value = this.emailEditState.originalSubject;
+        input.maxLength = 200;
+        input.type = 'text';
+
+        input.style.cssText = `
+            width: ${Math.max(250, editableSubject.offsetWidth)}px;
+            font-family: ${computedStyle.fontFamily};
+            font-size: ${computedStyle.fontSize};
+            font-weight: ${computedStyle.fontWeight};
+        `;
+
+        editableSubject.innerHTML = '';
+        editableSubject.appendChild(input);
+
+        editActions.style.display = 'flex';
+        input.focus();
+        input.select();
+
+        this.emailEditState.currentEditInput = input;
+    }
+
+    // Start editing body
+    startBodyEdit() {
+        if (this.emailEditState.isEditing || !this.currentAnalysis) return;
+
+        const editableBody = document.getElementById('emailBody');
+        const editActions = document.querySelector('.edit-actions');
+
+        this.emailEditState.isEditing = true;
+        this.emailEditState.originalBody = editableBody.innerHTML.replace(/<br>/g, '\n');
+
+        const currentHeight = editableBody.offsetHeight;
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'editing-textarea';
+        textarea.value = this.emailEditState.originalBody;
+        textarea.maxLength = 2000;
+
+        const targetHeight = Math.max(currentHeight, 80);
+        textarea.style.height = `${targetHeight}px`;
+
+        editableBody.style.display = 'none';
+        editableBody.parentNode.insertBefore(textarea, editableBody.nextSibling);
+
+        editActions.style.display = 'flex';
+        textarea.focus();
+
+        this.emailEditState.currentEditTextarea = textarea;
+    }
+
+    // Save email changes
+    saveEmailChanges() {
+        if (!this.emailEditState.isEditing) return;
+
+        const editableSubject = document.getElementById('emailSubject');
+        const editableBody = document.getElementById('emailBody');
+        const editActions = document.querySelector('.edit-actions');
+
+        let newSubject = this.emailEditState.originalSubject;
+        let newBody = this.emailEditState.originalBody;
+
+        try {
+            // Get new values
+            if (this.emailEditState.currentEditInput) {
+                newSubject = this.emailEditState.currentEditInput.value.trim();
+                if (!newSubject) {
+                    this.showNotification('Subject cannot be empty', 'error');
+                    return;
+                }
+                editableSubject.textContent = newSubject;
+                this.emailEditState.currentEditInput = null;
+            }
+
+            if (this.emailEditState.currentEditTextarea) {
+                newBody = this.emailEditState.currentEditTextarea.value.trim();
+                if (!newBody) {
+                    this.showNotification('Email body cannot be empty', 'error');
+                    return;
+                }
+                editableBody.innerHTML = newBody.replace(/\n/g, '<br>');
+                this.emailEditState.currentEditTextarea.remove();
+                this.emailEditState.currentEditTextarea = null;
+                editableBody.style.display = 'block';
+            }
+
+            // Update the current analysis data
+            if (this.currentAnalysis) {
+                this.currentAnalysis.email_subject = newSubject;
+                this.currentAnalysis.email_body = newBody;
+            }
+
+            // Hide edit actions
+            editActions.style.display = 'none';
+            this.emailEditState.isEditing = false;
+
+            this.showNotification('Email updated successfully!', 'success');
+
+        } catch (error) {
+            console.error('Error saving email changes:', error);
+            this.showNotification('Failed to save changes', 'error');
+            this.cancelEmailEditing();
+        }
+    }
+
+    // Cancel email editing
+    cancelEmailEditing() {
+        if (!this.emailEditState.isEditing) return;
+
+        const editableSubject = document.getElementById('emailSubject');
+        const editableBody = document.getElementById('emailBody');
+        const editActions = document.querySelector('.edit-actions');
+
+        try {
+            if (this.emailEditState.currentEditInput) {
+                editableSubject.textContent = this.emailEditState.originalSubject;
+                this.emailEditState.currentEditInput = null;
+            }
+
+            if (this.emailEditState.currentEditTextarea) {
+                this.emailEditState.currentEditTextarea.remove();
+                this.emailEditState.currentEditTextarea = null;
+                editableBody.style.display = 'block';
+            }
+
+            editActions.style.display = 'none';
+            this.emailEditState.isEditing = false;
+
+        } catch (error) {
+            console.error('Error canceling email editing:', error);
+            editActions.style.display = 'none';
+            this.emailEditState.isEditing = false;
+        }
     }
 
     // Update UI based on current state

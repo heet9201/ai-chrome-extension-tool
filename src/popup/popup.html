@@ -76,9 +76,29 @@
                 <h4>Generated Email</h4>
                 <div class="email-content">
                   <div class="email-subject">
-                    <strong>Subject:</strong> <span id="emailSubject"></span>
+                    <strong>Subject:</strong>
+                    <span
+                      id="emailSubject"
+                      class="editable-subject"
+                      data-placeholder="Click to edit subject"
+                    ></span>
                   </div>
-                  <div class="email-body" id="emailBody"></div>
+                  <div class="email-body-container">
+                    <strong>Message:</strong>
+                    <div
+                      id="emailBody"
+                      class="email-body editable-body"
+                      data-placeholder="Click to edit email body"
+                    ></div>
+                  </div>
+                  <div class="edit-actions" style="display: none">
+                    <button id="saveEmailBtn" class="btn-save-inline">
+                      💾 Save Changes
+                    </button>
+                    <button id="cancelEmailBtn" class="btn-cancel-inline">
+                      ❌ Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

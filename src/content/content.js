@@ -304,7 +304,9 @@ class LinkedInJobAssistant {
             ${analysisData.status === 'RELEVANT' ? `
               <div class="contact-section">
                 <h4>Contact Information</h4>
-                <p><strong>Email:</strong> ${analysisData.contact || 'Not found'}</p>
+                <div class="contact-display">
+                  <strong>Email:</strong> <span class="editable-contact" data-placeholder="Click to edit contact email">${analysisData.contact || 'Not found'}</span>
+                </div>
               </div>
               
               ${analysisData.resume_skills_used === true && analysisData.relevant_resume_skills && analysisData.relevant_resume_skills.length > 0 ? `
@@ -328,7 +330,7 @@ class LinkedInJobAssistant {
                 <h4>Generated Email</h4>
                 <div class="email-preview">
                   <div class="subject-display">
-                    <p><strong>Subject:</strong> <span class="editable-subject" data-placeholder="Click to edit subject">${analysisData.email_subject}</span></p>
+                    <strong>Subject:</strong> <span class="editable-subject" data-placeholder="Click to edit subject">${analysisData.email_subject}</span>
                   </div>
                   <div class="body-display">
                     <strong>Message:</strong>
@@ -477,47 +479,91 @@ class LinkedInJobAssistant {
 
   // Setup inline editing functionality
   setupInlineEditing(modal, emailAddress) {
+    console.log('🔧 Setting up inline editing...');
+
     const editableSubject = modal.querySelector('.editable-subject');
     const editableBody = modal.querySelector('.editable-body');
+    const editableContact = modal.querySelector('.editable-contact');
     const editActions = modal.querySelector('.edit-actions');
     const saveBtn = modal.querySelector('.btn-save-inline');
     const cancelBtn = modal.querySelector('.btn-cancel-inline');
 
+    console.log('🔍 Found elements:', {
+      editableSubject: !!editableSubject,
+      editableBody: !!editableBody,
+      editableContact: !!editableContact,
+      editActions: !!editActions,
+      saveBtn: !!saveBtn,
+      cancelBtn: !!cancelBtn
+    });
+
+    if (!editableSubject || !editableBody || !editableContact || !editActions || !saveBtn || !cancelBtn) {
+      console.error('❌ Missing required elements for inline editing');
+      return;
+    }
+
     let originalSubject = '';
     let originalBody = '';
+    let originalContact = '';
     let isEditing = false;
 
     // Function to start editing subject
     const startSubjectEdit = () => {
-      if (isEditing) return;
+      console.log('🎯 Subject edit clicked');
+      if (isEditing) {
+        console.log('❌ Already editing, aborting');
+        return;
+      }
 
-      isEditing = true;
-      originalSubject = editableSubject.textContent;
+      try {
+        isEditing = true;
+        originalSubject = editableSubject.textContent;
+        console.log('📝 Original subject:', originalSubject);
 
-      // Get the current dimensions of the subject element
-      const currentHeight = editableSubject.offsetHeight;
-      const computedStyle = window.getComputedStyle(editableSubject);
-      const paddingTop = parseInt(computedStyle.paddingTop);
-      const paddingBottom = parseInt(computedStyle.paddingBottom);
+        // Store original content and styling
+        const originalDisplay = editableSubject.style.display || 'inline';
+        const computedStyle = window.getComputedStyle(editableSubject);
 
-      const input = document.createElement('input');
-      input.className = 'editing-input';
-      input.value = originalSubject;
-      input.maxLength = 200;
+        const input = document.createElement('input');
+        input.className = 'editing-input';
+        input.value = originalSubject;
+        input.maxLength = 200;
+        input.type = 'text';
 
-      // Set the height to match the original element, accounting for padding
-      const targetHeight = Math.max(currentHeight, 32);
-      input.style.height = `${targetHeight}px`;
+        // Style the input to match the original element
+        input.style.cssText = `
+          width: ${Math.max(300, editableSubject.offsetWidth)}px;
+          font-family: ${computedStyle.fontFamily};
+          font-size: ${computedStyle.fontSize};
+          font-weight: ${computedStyle.fontWeight};
+          color: ${computedStyle.color};
+          background: ${computedStyle.backgroundColor || 'transparent'};
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 4px 8px;
+          outline: none;
+          display: ${originalDisplay};
+        `;
 
-      editableSubject.style.display = 'none';
-      editableSubject.parentNode.insertBefore(input, editableSubject.nextSibling);
+        console.log('💡 Creating input element with value:', input.value);
 
-      editActions.style.display = 'flex';
-      input.focus();
-      input.select();
+        // Replace the content inline
+        editableSubject.innerHTML = '';
+        editableSubject.appendChild(input);
 
-      // Store reference for later access
-      modal.currentEditInput = input;
+        editActions.style.display = 'flex';
+        input.focus();
+        input.select();
+
+        // Store reference for later access
+        modal.currentEditInput = input;
+        modal.originalSubjectDisplay = originalDisplay;
+        console.log('✅ Subject edit mode activated');
+
+      } catch (error) {
+        console.error('❌ Error in subject editing:', error);
+        isEditing = false;
+      }
     };
 
     // Function to start editing body
@@ -550,78 +596,203 @@ class LinkedInJobAssistant {
       modal.currentEditTextarea = textarea;
     };
 
+    // Function to start editing contact email
+    const startContactEdit = () => {
+      console.log('🎯 Contact edit clicked');
+      if (isEditing) {
+        console.log('❌ Already editing, aborting');
+        return;
+      }
+
+      try {
+        isEditing = true;
+        originalContact = editableContact.textContent;
+        console.log('📝 Original contact:', originalContact);
+
+        // Store original content and styling
+        const originalDisplay = editableContact.style.display || 'inline';
+        const computedStyle = window.getComputedStyle(editableContact);
+
+        const input = document.createElement('input');
+        input.className = 'editing-input';
+        input.value = originalContact;
+        input.maxLength = 100;
+        input.type = 'email';
+        input.placeholder = 'Enter email address';
+
+        // Style the input to match the original element
+        input.style.cssText = `
+          width: ${Math.max(250, editableContact.offsetWidth)}px;
+          font-family: ${computedStyle.fontFamily};
+          font-size: ${computedStyle.fontSize};
+          font-weight: ${computedStyle.fontWeight};
+          color: ${computedStyle.color};
+          background: ${computedStyle.backgroundColor || 'transparent'};
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          padding: 4px 8px;
+          outline: none;
+          display: ${originalDisplay};
+        `;
+
+        console.log('💡 Creating contact input element with value:', input.value);
+
+        // Replace the content inline
+        editableContact.innerHTML = '';
+        editableContact.appendChild(input);
+
+        editActions.style.display = 'flex';
+        input.focus();
+        input.select();
+
+        // Store reference for later access
+        modal.currentEditContactInput = input;
+        modal.originalContactDisplay = originalDisplay;
+        console.log('✅ Contact edit mode activated');
+
+      } catch (error) {
+        console.error('❌ Error in contact editing:', error);
+        isEditing = false;
+      }
+    };
+
     // Function to save changes
     const saveChanges = () => {
+      console.log('💾 Save changes called');
       let newSubject = originalSubject;
       let newBody = originalBody;
+      let newContact = originalContact;
 
-      // Get new values
-      if (modal.currentEditInput) {
-        newSubject = modal.currentEditInput.value.trim();
-        if (!newSubject) {
-          this.showNotification('Subject cannot be empty', 'warning');
-          return;
+      try {
+        // Get new values
+        if (modal.currentEditInput) {
+          newSubject = modal.currentEditInput.value.trim();
+          console.log('📝 New subject value:', newSubject);
+          if (!newSubject) {
+            this.showNotification('Subject cannot be empty', 'warning');
+            return;
+          }
         }
-      }
 
-      if (modal.currentEditTextarea) {
-        newBody = modal.currentEditTextarea.value.trim();
-        if (!newBody) {
-          this.showNotification('Email body cannot be empty', 'warning');
-          return;
+        if (modal.currentEditTextarea) {
+          newBody = modal.currentEditTextarea.value.trim();
+          console.log('📝 New body value:', newBody);
+          if (!newBody) {
+            this.showNotification('Email body cannot be empty', 'warning');
+            return;
+          }
         }
+
+        if (modal.currentEditContactInput) {
+          newContact = modal.currentEditContactInput.value.trim();
+          console.log('📝 New contact value:', newContact);
+          if (!newContact) {
+            this.showNotification('Contact email cannot be empty', 'warning');
+            return;
+          }
+        }
+
+        // Update display
+        if (modal.currentEditInput) {
+          console.log('✅ Updating subject display');
+          editableSubject.textContent = newSubject;
+          // Restore original display style
+          editableSubject.style.display = modal.originalSubjectDisplay || 'inline';
+          modal.currentEditInput = null;
+          modal.originalSubjectDisplay = null;
+        }
+
+        if (modal.currentEditTextarea) {
+          console.log('✅ Updating body display');
+          editableBody.innerHTML = newBody.replace(/\n/g, '<br>');
+          modal.currentEditTextarea.remove();
+          modal.currentEditTextarea = null;
+          editableBody.style.display = 'block';
+        }
+
+        if (modal.currentEditContactInput) {
+          console.log('✅ Updating contact display');
+          editableContact.textContent = newContact;
+          editableContact.style.display = modal.originalContactDisplay || 'inline';
+          modal.currentEditContactInput = null;
+          modal.originalContactDisplay = null;
+        }
+
+        // Update all button data attributes
+        this.updateEmailContent(modal, newSubject, newBody, newContact);
+
+        // Hide edit actions
+        editActions.style.display = 'none';
+        isEditing = false;
+
+        this.showNotification('Email updated successfully!', 'success');
+        console.log('✅ Save completed successfully');
+
+      } catch (error) {
+        console.error('❌ Error saving changes:', error);
+        isEditing = false;
+        editActions.style.display = 'none';
       }
-
-      // Update display
-      if (modal.currentEditInput) {
-        editableSubject.textContent = newSubject;
-        modal.currentEditInput.remove();
-        modal.currentEditInput = null;
-        editableSubject.style.display = 'inline';
-      }
-
-      if (modal.currentEditTextarea) {
-        editableBody.innerHTML = newBody.replace(/\n/g, '<br>');
-        modal.currentEditTextarea.remove();
-        modal.currentEditTextarea = null;
-        editableBody.style.display = 'block';
-      }
-
-      // Update all button data attributes
-      this.updateEmailContent(modal, newSubject, newBody, emailAddress);
-
-      // Hide edit actions
-      editActions.style.display = 'none';
-      isEditing = false;
-
-      this.showNotification('Email updated successfully!', 'success');
     };
 
     // Function to cancel editing
     const cancelEditing = () => {
-      if (modal.currentEditInput) {
-        modal.currentEditInput.remove();
-        modal.currentEditInput = null;
-        editableSubject.style.display = 'inline';
-      }
+      console.log('❌ Cancel editing called');
+      try {
+        if (modal.currentEditInput) {
+          console.log('🚫 Canceling subject edit');
+          editableSubject.textContent = originalSubject;
+          // Restore original display style
+          editableSubject.style.display = modal.originalSubjectDisplay || 'inline';
+          modal.currentEditInput = null;
+          modal.originalSubjectDisplay = null;
+        }
 
-      if (modal.currentEditTextarea) {
-        modal.currentEditTextarea.remove();
-        modal.currentEditTextarea = null;
-        editableBody.style.display = 'block';
-      }
+        if (modal.currentEditTextarea) {
+          console.log('🚫 Canceling body edit');
+          modal.currentEditTextarea.remove();
+          modal.currentEditTextarea = null;
+          editableBody.style.display = 'block';
+        }
 
-      editActions.style.display = 'none';
-      isEditing = false;
+        if (modal.currentEditContactInput) {
+          console.log('🚫 Canceling contact edit');
+          editableContact.textContent = originalContact;
+          editableContact.style.display = modal.originalContactDisplay || 'inline';
+          modal.currentEditContactInput = null;
+          modal.originalContactDisplay = null;
+        }
+
+        editActions.style.display = 'none';
+        isEditing = false;
+        console.log('✅ Cancel completed');
+      } catch (error) {
+        console.error('❌ Error canceling edit:', error);
+        isEditing = false;
+        editActions.style.display = 'none';
+      }
     };
 
     // Event listeners
     if (editableSubject) {
       editableSubject.addEventListener('click', startSubjectEdit);
+      console.log('✅ Subject click listener added');
+    } else {
+      console.warn('❌ editableSubject element not found');
     }
 
     if (editableBody) {
       editableBody.addEventListener('click', startBodyEdit);
+      console.log('✅ Body click listener added');
+    } else {
+      console.warn('❌ editableBody element not found');
+    }
+
+    if (editableContact) {
+      editableContact.addEventListener('click', startContactEdit);
+      console.log('✅ Contact click listener added');
+    } else {
+      console.warn('❌ editableContact element not found');
     }
 
     if (saveBtn) {
@@ -632,10 +803,10 @@ class LinkedInJobAssistant {
       cancelBtn.addEventListener('click', cancelEditing);
     }
 
-    // Handle Enter key for subject input and Escape for cancel
+    // Handle Enter key for subject/contact input and Escape for cancel
     modal.addEventListener('keydown', (e) => {
       if (isEditing) {
-        if (e.key === 'Enter' && modal.currentEditInput) {
+        if (e.key === 'Enter' && (modal.currentEditInput || modal.currentEditContactInput)) {
           e.preventDefault();
           saveChanges();
         } else if (e.key === 'Escape') {
@@ -686,14 +857,14 @@ class LinkedInJobAssistant {
   }
 
   // Update email content in the main modal  
-  updateEmailContent(modal, newSubject, newBody, emailAddress) {
+  updateEmailContent(modal, newSubject, newBody, newContact) {
     // Update all button data attributes
     const buttons = modal.querySelectorAll('.copy-email-btn, .open-email-btn, .send-email-btn');
     buttons.forEach(button => {
       button.dataset.subject = newSubject;
       button.dataset.body = newBody;
-      if (emailAddress) {
-        button.dataset.email = emailAddress;
+      if (newContact) {
+        button.dataset.email = newContact;
       }
     });
   }
