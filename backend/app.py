@@ -23,6 +23,19 @@ from services.ai_settings import get_ai_settings_service
 # Import resume parsing utility
 from utils.resume_parser import parse_resume_file, get_resume_skills_for_job
 
+# Import AI libraries with availability checks
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+
 def setup_logging():
     """Setup logging configuration for production deployment"""
     import logging
@@ -493,12 +506,13 @@ def test_ai_connection():
         
         provider = data.get('provider')
         api_key = data.get('api_key')
+        model = data.get('model')  # Get the selected model
         
         if not provider or not api_key:
             return jsonify({'success': False, 'error': 'Provider and API key are required'})
         
         ai_service = get_ai_settings_service()
-        result = ai_service.test_provider_connection(provider, api_key)
+        result = ai_service.test_provider_connection(provider, api_key, model)
         
         return jsonify(result)
         
@@ -573,6 +587,249 @@ def parse_resume():
             'details': str(e) if app.debug else None
         }), 500
 
+@app.route('/api/pre-filter-jobs', methods=['POST'])
+def pre_filter_jobs():
+    """Pre-filter jobs using AI to determine relevance quickly before full analysis"""
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        jobs = data.get('jobs', [])
+        user_profile = data.get('user_profile', {})
+        
+        if not jobs:
+            return jsonify({'error': 'Jobs array is required'}), 400
+        
+        # Get AI settings for analysis
+        ai_service = get_ai_settings_service()
+        ai_settings = ai_service.get_active_provider_config()
+        
+        # If AI is available, use it for smart pre-filtering
+        if ai_settings and ai_settings.get('api_key'):
+            try:
+                # Use AI for intelligent pre-filtering
+                filtered_jobs = ai_pre_filter_jobs(jobs, user_profile, ai_settings)
+                
+                app.logger.info(f"AI pre-filtered {len(jobs)} jobs to {len(filtered_jobs)} relevant jobs")
+                
+                return jsonify({
+                    'success': True,
+                    'filteredJobs': filtered_jobs,
+                    'originalCount': len(jobs),
+                    'filteredCount': len(filtered_jobs),
+                    'method': 'ai'
+                })
+                
+            except Exception as ai_error:
+                app.logger.warning(f"AI pre-filtering failed: {ai_error}, falling back to keyword filtering")
+                # Fall through to keyword-based filtering
+        
+        # Fallback: Use keyword-based filtering
+        filtered_jobs = keyword_pre_filter_jobs(jobs, user_profile)
+        
+        app.logger.info(f"Keyword pre-filtered {len(jobs)} jobs to {len(filtered_jobs)} relevant jobs")
+        
+        return jsonify({
+            'success': True,
+            'filteredJobs': filtered_jobs,
+            'originalCount': len(jobs),
+            'filteredCount': len(filtered_jobs),
+            'method': 'keyword'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error in pre-filtering jobs: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error during job pre-filtering',
+            'details': str(e) if DEBUG else None
+        }), 500
+
+def ai_pre_filter_jobs(jobs, user_profile, ai_settings):
+    """Use AI to intelligently pre-filter jobs with a lightweight approach"""
+    
+    # Create a concise prompt for quick relevance assessment
+    user_skills = ', '.join(user_profile.get('skills', []))
+    user_domain = user_profile.get('domain', 'Software Development')
+    excluded_roles = ', '.join(user_profile.get('excludedRoles', []))
+    
+    filtered_jobs = []
+    
+    # Process jobs in batches for efficiency
+    batch_size = 5
+    for i in range(0, len(jobs), batch_size):
+        batch = jobs[i:i + batch_size]
+        
+        try:
+            # Create batch prompt for multiple jobs at once
+            batch_prompt = f"""
+            User Profile:
+            - Skills: {user_skills}
+            - Domain: {user_domain}
+            - Excluded roles: {excluded_roles}
+            
+            Analyze the following {len(batch)} jobs for relevance. For each job, respond with only "RELEVANT", "MAYBE", or "NOT_RELEVANT".
+            
+            """
+            
+            for idx, job in enumerate(batch):
+                job_summary = f"""
+                Job {idx + 1}:
+                Title: {job.get('title', 'Unknown')}
+                Company: {job.get('company', 'Unknown')}
+                Description: {(job.get('description', '') + ' ' + job.get('content', ''))[:300]}
+                """
+                batch_prompt += job_summary + "\n"
+            
+            batch_prompt += "\nRespond with exactly one line per job: Job1: RELEVANT/MAYBE/NOT_RELEVANT, Job2: RELEVANT/MAYBE/NOT_RELEVANT, etc."
+            
+            # Use AI for batch analysis
+            if ai_settings.get('provider') == 'openai' and OPENAI_AVAILABLE:
+                client = openai.OpenAI(api_key=ai_settings.get('api_key'))
+                response = client.chat.completions.create(
+                    model=ai_settings.get('model', 'gpt-4'),
+                    messages=[
+                        {"role": "system", "content": "You are a job relevance analyzer. Respond concisely with only the requested format."},
+                        {"role": "user", "content": batch_prompt}
+                    ],
+                    max_tokens=200,
+                    temperature=0.3
+                )
+                ai_response = response.choices[0].message.content.strip()
+                
+            elif ai_settings.get('provider') == 'groq' and GROQ_AVAILABLE:
+                client = Groq(api_key=ai_settings.get('api_key'))
+                response = client.chat.completions.create(
+                    model=ai_settings.get('model', 'llama3-8b-8192'),
+                    messages=[
+                        {"role": "system", "content": "You are a job relevance analyzer. Respond concisely with only the requested format."},
+                        {"role": "user", "content": batch_prompt}
+                    ],
+                    max_tokens=200,
+                    temperature=0.3
+                )
+                ai_response = response.choices[0].message.content.strip()
+            
+            else:
+                # Fallback to keyword filtering for this batch
+                for job in batch:
+                    if keyword_match_job(job, user_profile):
+                        filtered_jobs.append(job)
+                continue
+            
+            # Parse AI response and filter jobs
+            response_lines = ai_response.split('\n')
+            for idx, job in enumerate(batch):
+                try:
+                    if idx < len(response_lines):
+                        line = response_lines[idx].upper()
+                        if 'RELEVANT' in line or 'MAYBE' in line:
+                            filtered_jobs.append(job)
+                    else:
+                        # If response is incomplete, include job to be safe
+                        filtered_jobs.append(job)
+                except:
+                    # If parsing fails, include job to be safe
+                    filtered_jobs.append(job)
+                    
+        except Exception as e:
+            app.logger.warning(f"AI batch analysis failed: {e}, falling back to keyword matching for batch")
+            # Fallback to keyword filtering for this batch
+            for job in batch:
+                if keyword_match_job(job, user_profile):
+                    filtered_jobs.append(job)
+    
+    return filtered_jobs
+
+def keyword_match_job(job, user_profile):
+    """Quick keyword matching for a single job"""
+    user_skills = user_profile.get('skills', [])
+    excluded_roles = [role.lower() for role in user_profile.get('excludedRoles', [])]
+    
+    # Convert skills to lowercase for matching
+    if isinstance(user_skills, list):
+        user_skills_lower = [skill.lower() for skill in user_skills]
+    else:
+        user_skills_lower = []
+    
+    job_content = f"{job.get('title', '')} {job.get('company', '')} {job.get('description', '')} {job.get('content', '')}".lower()
+    
+    # Basic relevance scoring
+    score = 0
+    
+    # Technical keywords that indicate relevant jobs
+    tech_keywords = ['developer', 'engineer', 'programmer', 'software', 'python', 'javascript', 'api', 'backend', 'frontend', 'ml', 'ai', 'data']
+    for keyword in tech_keywords:
+        if keyword in job_content:
+            score += 1
+    
+    # User skills matching (higher weight)
+    for skill in user_skills_lower:
+        if skill and skill in job_content:
+            score += 3
+    
+    # Check for excluded roles (negative score)
+    excluded_found = False
+    for excluded in excluded_roles:
+        if excluded and excluded in job_content:
+            excluded_found = True
+            break
+    
+    # Include job if score is positive and no excluded roles found
+    return score > 2 and not excluded_found
+
+def keyword_pre_filter_jobs(jobs, user_profile):
+    """Use keyword-based filtering as fallback"""
+    
+    user_skills = user_profile.get('skills', [])
+    user_domain = user_profile.get('domain', '').lower()
+    excluded_roles = [role.lower() for role in user_profile.get('excludedRoles', [])]
+    
+    # Convert skills to lowercase for matching
+    if isinstance(user_skills, list):
+        user_skills_lower = [skill.lower() for skill in user_skills]
+    else:
+        user_skills_lower = []
+    
+    filtered_jobs = []
+    
+    for job in jobs:
+        job_content = f"{job.get('title', '')} {job.get('company', '')} {job.get('description', '')} {job.get('content', '')}".lower()
+        
+        # Basic relevance scoring
+        score = 0
+        
+        # Technical keywords that indicate relevant jobs
+        tech_keywords = ['developer', 'engineer', 'programmer', 'software', 'python', 'javascript', 'api', 'backend', 'frontend', 'ml', 'ai', 'data']
+        for keyword in tech_keywords:
+            if keyword in job_content:
+                score += 1
+        
+        # User skills matching (higher weight)
+        for skill in user_skills_lower:
+            if skill and skill in job_content:
+                score += 3
+        
+        # Domain matching
+        if user_domain and user_domain in job_content:
+            score += 2
+        
+        # Check for excluded roles (negative score)
+        excluded_found = False
+        for excluded in excluded_roles:
+            if excluded and excluded in job_content:
+                excluded_found = True
+                score -= 5  # Heavy penalty for excluded roles
+                break
+        
+        # Include job if score is positive and no excluded roles found
+        if score > 2 and not excluded_found:
+            filtered_jobs.append(job)
+    
+    return filtered_jobs
+
 # ==================== MAIN APPLICATION ====================
 
 if __name__ == '__main__':
@@ -598,5 +855,6 @@ if __name__ == '__main__':
     print(f"   - POST /api/ai-settings/get-key - Get API key for display")
     print(f"   - POST /api/test-ai - Test AI connection")
     print(f"   - POST /api/parse-resume - Parse resumes for skills")
+    print(f"   - POST /api/pre-filter-jobs - Pre-filter jobs using AI")
     
     app.run(host='0.0.0.0', port=port, debug=debug)

@@ -308,13 +308,14 @@ class AISettingsService:
                 'error': f'Error clearing settings: {str(e)}'
             }
     
-    def test_provider_connection(self, provider: str, api_key: str) -> Dict[str, Any]:
+    def test_provider_connection(self, provider: str, api_key: str, model: str = None) -> Dict[str, Any]:
         """
         Test connection to AI provider
         
         Args:
             provider: Provider name
             api_key: API key to test
+            model: Model to test (optional)
             
         Returns:
             Dictionary with test results
@@ -323,7 +324,7 @@ class AISettingsService:
             from services.ai_agent import JobAnalysisAgent
             
             # Create agent with test credentials
-            agent = JobAnalysisAgent(provider=provider, api_key=api_key)
+            agent = JobAnalysisAgent(provider=provider, api_key=api_key, model=model)
             
             # Test connection
             result = agent.test_connection()

@@ -47,10 +47,76 @@
             Analyze Job Post
           </button>
 
+          <button id="bulkAnalyzeBtn" class="btn btn-primary">
+            <span class="btn-icon">📊</span>
+            Analyze Every Posts
+          </button>
+
+          <button id="cacheManagementBtn" class="btn btn-outline btn-small">
+            <span class="btn-icon">💾</span>
+            Cache
+          </button>
+
           <button id="quickApplyBtn" class="btn btn-secondary" disabled>
             <span class="btn-icon">✉️</span>
             Quick Apply
           </button>
+        </div>
+
+        <!-- Bulk Analysis Settings -->
+        <div
+          id="bulkSettingsSection"
+          class="bulk-settings-section"
+          style="display: none"
+        >
+          <div class="bulk-settings-header">
+            <h4>📊 Bulk Analysis Settings</h4>
+            <button id="closeBulkSettings" class="close-settings-btn">×</button>
+          </div>
+          <div class="bulk-settings-content">
+            <div class="setting-item">
+              <label for="postCountInput">Number of posts to analyze:</label>
+              <div class="input-group">
+                <input
+                  type="number"
+                  id="postCountInput"
+                  min="1"
+                  max="50"
+                  value="10"
+                />
+                <span class="input-suffix">posts</span>
+              </div>
+            </div>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" id="autoLoadMore" checked />
+                Automatically load more posts if needed
+              </label>
+              <small class="setting-description"
+                >Extension will scroll/load more posts to reach the target
+                count</small
+              >
+            </div>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" id="enhancedAIFilter" checked />
+                Enhanced AI relevance filtering
+              </label>
+              <small class="setting-description"
+                >Use AI to better determine job relevance based on your
+                profile</small
+              >
+            </div>
+            <div class="bulk-settings-actions">
+              <button id="startBulkAnalysis" class="btn btn-primary">
+                <span class="btn-icon">🚀</span>
+                Start Analysis
+              </button>
+              <button id="cancelBulkSettings" class="btn btn-outline">
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
 
         <div id="resultsSection" class="results-section" style="display: none">
@@ -121,6 +187,24 @@
           </div>
         </div>
 
+        <!-- Bulk Analysis Results Section -->
+        <div
+          id="bulkResultsSection"
+          class="bulk-results-section"
+          style="display: none"
+        >
+          <div class="bulk-results-header">
+            <h3>📊 Job Analysis Results</h3>
+            <div class="bulk-stats">
+              <span id="totalAnalyzed" class="bulk-stat">0 analyzed</span>
+              <span id="totalRelevant" class="bulk-stat">0 relevant</span>
+            </div>
+          </div>
+          <div class="job-list" id="jobList">
+            <!-- Job items will be dynamically added here -->
+          </div>
+        </div>
+
         <div class="stats-section">
           <div class="stat-item">
             <span class="stat-number" id="analyzedCount">0</span>
@@ -133,6 +217,116 @@
           <div class="stat-item">
             <span class="stat-number" id="appliedCount">0</span>
             <span class="stat-label">Applied</span>
+          </div>
+        </div>
+
+        <!-- Cache Management Section -->
+        <div
+          id="cacheSettingsSection"
+          class="bulk-settings-section"
+          style="display: none"
+        >
+          <div class="bulk-settings-header">
+            <h4>💾 Cache Management</h4>
+            <button id="closeCacheSettings" class="close-settings-btn">
+              ×
+            </button>
+          </div>
+          <div class="bulk-settings-content">
+            <!-- Cache Statistics -->
+            <div class="setting-group">
+              <label class="setting-label">Cache Statistics</label>
+              <div class="cache-stats-grid">
+                <div class="cache-stat-item">
+                  <span class="cache-stat-label">Total Entries:</span>
+                  <span id="cacheStatsTotal" class="cache-stat-value">-</span>
+                </div>
+                <div class="cache-stat-item">
+                  <span class="cache-stat-label">Valid Entries:</span>
+                  <span id="cacheStatsValid" class="cache-stat-value">-</span>
+                </div>
+                <div class="cache-stat-item">
+                  <span class="cache-stat-label">Cache Size:</span>
+                  <span id="cacheStatsSize" class="cache-stat-value">-</span>
+                </div>
+                <div class="cache-stat-item">
+                  <span class="cache-stat-label">Hit Rate:</span>
+                  <span id="cacheStatsHitRate" class="cache-stat-value">-</span>
+                </div>
+                <div class="cache-stat-item">
+                  <span class="cache-stat-label">Storage Used:</span>
+                  <span id="cacheStatsStorage" class="cache-stat-value">-</span>
+                </div>
+                <div class="cache-stat-item">
+                  <span class="cache-stat-label">Storage Usage:</span>
+                  <div class="storage-bar-container">
+                    <div id="storageProgressBar" class="storage-progress-bar">
+                      <div
+                        id="storageProgressFill"
+                        class="storage-progress-fill"
+                      ></div>
+                    </div>
+                    <span id="storagePercentage" class="storage-percentage"
+                      >0%</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cache Actions -->
+            <div class="setting-group">
+              <label class="setting-label">Cache Actions</label>
+              <div class="cache-actions">
+                <button
+                  id="refreshCacheStats"
+                  class="btn btn-outline btn-small"
+                >
+                  <span class="btn-icon">🔄</span>
+                  Refresh Stats
+                </button>
+                <button
+                  id="forceCacheCleanup"
+                  class="btn btn-outline btn-small"
+                >
+                  <span class="btn-icon">🧹</span>
+                  Force Cleanup
+                </button>
+                <button id="clearAllCache" class="btn btn-danger btn-small">
+                  <span class="btn-icon">🗑️</span>
+                  Clear All Cache
+                </button>
+              </div>
+            </div>
+
+            <!-- Cache Information -->
+            <div class="setting-group">
+              <label class="setting-label">Cache Information</label>
+              <div class="cache-info">
+                <small class="setting-description">
+                  Cache stores job analysis results for 24 hours to improve
+                  performance. The system automatically manages storage and
+                  removes old entries when needed.
+                </small>
+                <details class="cache-details">
+                  <summary>Advanced Details</summary>
+                  <div class="cache-details-content">
+                    <div class="cache-detail-item">
+                      <span>Oldest Entry:</span>
+                      <span id="cacheOldestEntry">-</span>
+                    </div>
+                    <div class="cache-detail-item">
+                      <span>Newest Entry:</span>
+                      <span id="cacheNewestEntry">-</span>
+                    </div>
+                    <div class="cache-detail-item">
+                      <span>Expired Entries:</span>
+                      <span id="cacheExpiredEntries">-</span>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
           </div>
         </div>
       </main>

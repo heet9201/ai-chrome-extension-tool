@@ -924,6 +924,15 @@ class LinkedInJobAssistant {
               sendResponse({ data: jobData });
               break;
 
+            case 'GET_BULK_JOB_DATA':
+              this.getBulkJobData(message.limit || 10, message.autoLoadMore || false, message.enhancedFilter || false)
+                .then(data => sendResponse({ success: true, data }))
+                .catch(error => {
+                  console.error('Error getting bulk job data:', error);
+                  sendResponse({ success: false, error: error.message });
+                });
+              return true; // Keep channel open for async response
+
             case 'ANALYZE_TRIGGERED':
               this.analyzeCurrentPage();
               sendResponse({ success: true });
@@ -963,26 +972,338 @@ class LinkedInJobAssistant {
     });
   }
 
-  // Determine if resume skills information should be shown
-  shouldShowResumeSkillsInfo(analysisData) {
-    if (analysisData.resume_skills_used === true) {
-      return `
-        <div class="resume-skills-info">
-          <h4>📄 Resume Analysis</h4>
-          <p><strong>Resume Skills Used:</strong> Yes (${analysisData.resume_skills_count || 0} skills)</p>
-          ${analysisData.relevant_resume_skills && analysisData.relevant_resume_skills.length > 0 ? `
-            <p><strong>Relevant Skills:</strong> ${analysisData.relevant_resume_skills.slice(0, 5).join(', ')}${analysisData.relevant_resume_skills.length > 5 ? '...' : ''}</p>
-          ` : ''}
-          <small style="color: #28a745;">✨ Email generated using skills from your resume for better job matching</small>
-        </div>
-      `;
-    } else {
-      return `
-        <div class="resume-skills-info">
-          <p style="color: #6c757d;"><small>💡 Upload a resume in settings for more personalized applications</small></p>
-        </div>
-      `;
+  // Get bulk job data from current page
+  async getBulkJobData(limit = 10, autoLoadMore = false, enhancedFilter = false) {
+    const jobs = [];
+
+    try {
+      // Check if we're on a LinkedIn page
+      if (!window.location.href.includes('linkedin.com')) {
+        throw new Error('Not on a LinkedIn page');
+      }
+
+      console.log(`📊 Starting bulk extraction: limit=${limit}, autoLoad=${autoLoadMore}, enhanced=${enhancedFilter}`);
+
+      // Method 1: Extract from job search results page
+      if (window.location.href.includes('/jobs/search/') || window.location.href.includes('/jobs/collections/')) {
+        await this.extractFromJobSearchPage(jobs, limit, autoLoadMore, enhancedFilter);
+      }
+
+      // Method 2: Extract from LinkedIn feed posts
+      else if (window.location.href.includes('/feed/') || window.location.pathname === '/') {
+        await this.extractFromFeedPage(jobs, limit, autoLoadMore, enhancedFilter);
+      }
+
+      // Method 3: If on a specific job page, get recommended/similar jobs
+      else if (window.location.href.includes('/jobs/view/')) {
+        await this.extractFromJobViewPage(jobs, limit, autoLoadMore, enhancedFilter);
+      }
+
+      console.log(`📊 Extracted ${jobs.length} job posts from page`);
+      return jobs;
+
+    } catch (error) {
+      console.error('Error extracting bulk job data:', error);
+      throw error;
     }
+  }
+
+  // Extract jobs from job search results page
+  async extractFromJobSearchPage(jobs, limit, autoLoadMore, enhancedFilter) {
+    let attempts = 0;
+    const maxAttempts = autoLoadMore ? 5 : 1;
+
+    while (jobs.length < limit && attempts < maxAttempts) {
+      const jobCards = document.querySelectorAll('.job-search-card, .jobs-search-results__list-item, .scaffold-layout__list-item');
+
+      // Extract from current visible cards
+      for (let i = jobs.length; i < Math.min(jobCards.length, limit); i++) {
+        const card = jobCards[i];
+        const jobData = this.extractJobFromCard(card, i);
+        if (jobData && jobData.isValid) {
+          // Apply enhanced filtering if enabled
+          if (!enhancedFilter || this.passesEnhancedFilter(jobData)) {
+            jobs.push(jobData);
+          }
+        }
+      }
+
+      // If we need more jobs and auto-loading is enabled, try to load more
+      if (jobs.length < limit && autoLoadMore && attempts < maxAttempts - 1) {
+        console.log(`📄 Need more jobs (${jobs.length}/${limit}), attempting to load more...`);
+        await this.loadMoreJobs();
+        attempts++;
+        await this.delay(2000); // Wait for new content to load
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Extract jobs from LinkedIn feed
+  async extractFromFeedPage(jobs, limit, autoLoadMore, enhancedFilter) {
+    let attempts = 0;
+    const maxAttempts = autoLoadMore ? 5 : 1;
+
+    while (jobs.length < limit && attempts < maxAttempts) {
+      const feedPosts = document.querySelectorAll('.feed-shared-update-v2, .update-v2-social-activity, .feed-shared-mini-update-v2');
+
+      for (let i = 0; i < feedPosts.length && jobs.length < limit; i++) {
+        const post = feedPosts[i];
+        const jobData = this.extractJobFromFeedPost(post, i);
+        if (jobData && jobData.isValid) {
+          // Apply enhanced filtering if enabled
+          if (!enhancedFilter || this.passesEnhancedFilter(jobData)) {
+            jobs.push(jobData);
+          }
+        }
+      }
+
+      // Load more feed content if needed
+      if (jobs.length < limit && autoLoadMore && attempts < maxAttempts - 1) {
+        console.log(`📄 Need more job posts from feed (${jobs.length}/${limit}), scrolling for more...`);
+        await this.scrollForMoreContent();
+        attempts++;
+        await this.delay(3000); // Wait for new content to load
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Extract jobs from individual job view page
+  async extractFromJobViewPage(jobs, limit, autoLoadMore, enhancedFilter) {
+    // Get the current job first
+    const currentJob = this.parser.parseJobPage();
+    if (currentJob && currentJob.isValid) {
+      if (!enhancedFilter || this.passesEnhancedFilter(currentJob)) {
+        jobs.push(currentJob);
+      }
+    }
+
+    // Look for similar/recommended jobs on the same page
+    const similarJobs = document.querySelectorAll('.jobs-similar-jobs__card, .job-card-container, .jobs-details__right-rail .job-card');
+
+    for (let i = 0; i < Math.min(similarJobs.length, limit - jobs.length); i++) {
+      const card = similarJobs[i];
+      const jobData = this.extractJobFromCard(card, i);
+      if (jobData && jobData.isValid) {
+        if (!enhancedFilter || this.passesEnhancedFilter(jobData)) {
+          jobs.push(jobData);
+        }
+      }
+    }
+  }
+
+  // Enhanced filtering based on job content
+  passesEnhancedFilter(jobData) {
+    // More sophisticated keyword matching
+    const content = `${jobData.title || ''} ${jobData.company || ''} ${jobData.description || ''} ${jobData.content || ''}`.toLowerCase();
+
+    // Skip clearly irrelevant posts
+    const irrelevantKeywords = [
+      'internship', 'intern', 'entry level', 'student', 'graduate program',
+      'sales rep', 'marketing manager', 'hr manager', 'accountant',
+      'administrative', 'receptionist', 'customer service',
+      'retail', 'restaurant', 'warehouse', 'delivery driver'
+    ];
+
+    // Check for irrelevant keywords
+    const hasIrrelevantKeywords = irrelevantKeywords.some(keyword => content.includes(keyword));
+    if (hasIrrelevantKeywords) {
+      console.log(`� Filtered out job with irrelevant keywords: ${jobData.title}`);
+      return false;
+    }
+
+    // Enhanced job keyword matching
+    const techKeywords = [
+      'developer', 'engineer', 'programmer', 'architect', 'analyst',
+      'python', 'javascript', 'java', 'react', 'node.js', 'api',
+      'backend', 'frontend', 'fullstack', 'full-stack', 'ml', 'ai',
+      'machine learning', 'data science', 'devops', 'cloud',
+      'software', 'technical', 'technology', 'coding', 'programming'
+    ];
+
+    const hasTechKeywords = techKeywords.some(keyword => content.includes(keyword));
+
+    if (!hasTechKeywords && jobData.type === 'feed_post') {
+      // For feed posts, be more strict about tech keywords
+      console.log(`🚫 Filtered out non-tech feed post: ${jobData.title || jobData.content?.substring(0, 50)}`);
+      return false;
+    }
+
+    return true;
+  }
+
+  // Attempt to load more jobs by scrolling or clicking load more button
+  async loadMoreJobs() {
+    try {
+      // Method 1: Look for "Load more" or "Show more" buttons
+      const loadMoreButtons = document.querySelectorAll([
+        'button[aria-label*="more"]',
+        'button[aria-label*="More"]',
+        'button[data-control-name*="load_more"]',
+        '.jobs-search-results__pagination button',
+        '.artdeco-pagination__button--next'
+      ].join(', '));
+
+      for (const button of loadMoreButtons) {
+        if (button.textContent.toLowerCase().includes('more') ||
+          button.textContent.toLowerCase().includes('next') ||
+          button.getAttribute('aria-label')?.toLowerCase().includes('more')) {
+          console.log('📄 Clicking load more button:', button.textContent);
+          button.click();
+          return true;
+        }
+      }
+
+      // Method 2: Scroll to bottom to trigger infinite scroll
+      const initialHeight = document.body.scrollHeight;
+      window.scrollTo(0, document.body.scrollHeight);
+
+      // Wait a bit and check if new content loaded
+      await this.delay(1000);
+      const newHeight = document.body.scrollHeight;
+
+      if (newHeight > initialHeight) {
+        console.log('📄 Successfully triggered scroll loading');
+        return true;
+      }
+
+      console.log('📄 No additional content could be loaded');
+      return false;
+    } catch (error) {
+      console.error('Error loading more jobs:', error);
+      return false;
+    }
+  }
+
+  // Scroll for more content in feed
+  async scrollForMoreContent() {
+    try {
+      const initialPosts = document.querySelectorAll('.feed-shared-update-v2').length;
+
+      // Scroll to bottom multiple times
+      for (let i = 0; i < 3; i++) {
+        window.scrollTo(0, document.body.scrollHeight);
+        await this.delay(1000);
+      }
+
+      const newPosts = document.querySelectorAll('.feed-shared-update-v2').length;
+      console.log(`📄 Feed scroll result: ${initialPosts} -> ${newPosts} posts`);
+
+      return newPosts > initialPosts;
+    } catch (error) {
+      console.error('Error scrolling for more content:', error);
+      return false;
+    }
+  }
+
+  // Utility delay function
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Extract job data from a job card element
+  extractJobFromCard(card, index) {
+    try {
+      const titleElement = card.querySelector('.job-card-list__title, .job-card-container__link, .base-search-card__title, .job-card-list__title-link, h3 a, .job-card-list__title strong');
+      const companyElement = card.querySelector('.job-card-container__primary-description, .base-search-card__subtitle, .job-card-list__company, .artdeco-entity-lockup__subtitle, h4 a');
+      const locationElement = card.querySelector('.job-card-container__metadata-item, .job-card-list__metadata, .artdeco-entity-lockup__caption');
+      const linkElement = card.querySelector('a[href*="/jobs/view/"], a[href*="/jobs/collections/"]') || titleElement;
+
+      const title = titleElement?.textContent?.trim() || '';
+      const company = companyElement?.textContent?.trim() || '';
+      const location = locationElement?.textContent?.trim() || '';
+      const jobUrl = linkElement?.href || window.location.href;
+
+      // Try to get job description if available
+      const descriptionElement = card.querySelector('.job-card-list__description, .base-search-card__content');
+      const description = descriptionElement?.textContent?.trim() || '';
+
+      const jobData = {
+        type: 'job_card',
+        title,
+        company,
+        location,
+        description,
+        url: jobUrl,
+        source: 'bulk_extraction',
+        index,
+        timestamp: new Date().toISOString(),
+        contactInfo: this.parser.extractContactInfo(card)
+      };
+
+      // Clean and validate
+      return this.parser.cleanJobData(jobData);
+
+    } catch (error) {
+      console.error('Error extracting job from card:', error);
+      return null;
+    }
+  }
+
+  // Extract job data from a LinkedIn feed post
+  extractJobFromFeedPost(post, index) {
+    try {
+      const contentElement = post.querySelector('.feed-shared-update-v2__description, .update-components-text, .feed-shared-text');
+      const authorElement = post.querySelector('.update-components-actor__name, .feed-shared-actor__name');
+      const companyElement = post.querySelector('.update-components-actor__description, .feed-shared-actor__description');
+
+      const content = contentElement?.textContent?.trim() || '';
+      const author = authorElement?.textContent?.trim() || '';
+      const company = companyElement?.textContent?.trim() || author;
+
+      // Check if this post contains job-related keywords
+      if (!this.parser.containsJobKeywords(content)) {
+        return null;
+      }
+
+      const jobData = {
+        type: 'feed_post',
+        content,
+        title: this.extractJobTitleFromPost(content),
+        company,
+        author,
+        url: window.location.href,
+        source: 'bulk_extraction',
+        index,
+        timestamp: new Date().toISOString(),
+        contactInfo: this.parser.extractContactInfo(post)
+      };
+
+      // Clean and validate
+      const cleanedData = this.parser.cleanJobData(jobData);
+
+      // Override validation for feed posts - they're valid if they have content
+      if (cleanedData.content && cleanedData.content.length > 50) {
+        cleanedData.isValid = true;
+      }
+
+      return cleanedData;
+
+    } catch (error) {
+      console.error('Error extracting job from feed post:', error);
+      return null;
+    }
+  }
+
+  // Extract potential job title from post content
+  extractJobTitleFromPost(content) {
+    const jobTitlePatterns = [
+      /(?:hiring|looking for|seeking|recruiting)(?:\s+a)?\s+([A-Za-z\s]{5,50})(?:\s+at|$|\.|,)/i,
+      /(?:position|role|job)(?:\s+for)?\s+([A-Za-z\s]{5,50})(?:\s+at|$|\.|,)/i,
+      /([A-Za-z\s]{5,50})\s+(?:developer|engineer|manager|analyst|specialist|coordinator)/i
+    ];
+
+    for (const pattern of jobTitlePatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+
+    return 'Job Opportunity';
   }
 }
 

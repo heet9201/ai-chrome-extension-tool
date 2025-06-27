@@ -161,13 +161,50 @@ class LinkedInParser {
     // Check if content contains job-related keywords
     containsJobKeywords(content) {
         const jobKeywords = [
-            'hiring', 'job', 'position', 'role', 'opportunity', 'career',
-            'developer', 'engineer', 'python', 'backend', 'ml', 'ai',
-            'apply', 'resume', 'cv', 'candidate', 'team', 'join us'
+            // Direct hiring terms
+            'hiring', 'recruiting', 'looking for', 'seeking', 'we are hiring',
+            'join our team', 'now hiring', 'open position', 'job opening',
+
+            // Job types
+            'job', 'position', 'role', 'opportunity', 'career', 'vacancy',
+            'employment', 'work with us', 'team member',
+
+            // Tech roles
+            'developer', 'engineer', 'programmer', 'analyst', 'manager',
+            'specialist', 'coordinator', 'designer', 'architect', 'consultant',
+            'intern', 'graduate', 'senior', 'junior', 'lead', 'principal',
+
+            // Tech skills
+            'python', 'java', 'javascript', 'react', 'node', 'backend', 'frontend',
+            'fullstack', 'full-stack', 'ml', 'ai', 'machine learning', 'data science',
+            'devops', 'cloud', 'aws', 'docker', 'kubernetes',
+
+            // Application terms
+            'apply', 'resume', 'cv', 'candidate', 'applicant', 'interview',
+            'send your resume', 'submit application', 'interested candidates',
+
+            // Company terms
+            'team', 'company', 'startup', 'organization', 'department'
         ];
 
         const lowerContent = content.toLowerCase();
-        return jobKeywords.some(keyword => lowerContent.includes(keyword));
+
+        // Check for direct keyword matches
+        const hasKeywords = jobKeywords.some(keyword => lowerContent.includes(keyword));
+
+        // Check for common job post patterns
+        const jobPatterns = [
+            /we are (hiring|recruiting|looking for)/i,
+            /(join|be part of) (our|the) team/i,
+            /(open|available) (position|role|job)/i,
+            /(apply|send) (now|today|your resume)/i,
+            /looking for (a|an) .+ (developer|engineer|manager)/i,
+            /(remote|hybrid|on-site) (position|role|job|work)/i
+        ];
+
+        const hasPatterns = jobPatterns.some(pattern => pattern.test(content));
+
+        return hasKeywords || hasPatterns;
     }
 }
 

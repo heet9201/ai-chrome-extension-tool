@@ -59,6 +59,7 @@ class JobAnalysisAgent:
     def __init__(self, provider: str = None, api_key: str = None, **kwargs):
         self.provider = provider or getenv('AI_PROVIDER', 'openai')
         self.api_key = api_key
+        self.model = kwargs.get('model', self._get_default_model())
         self.temperature = kwargs.get('temperature', 0.7)
         self.max_tokens = kwargs.get('max_tokens', 1500)
         self.enable_optimizations = kwargs.get('enable_optimizations', True)
@@ -66,6 +67,15 @@ class JobAnalysisAgent:
         self.ai_client = None
         if api_key:
             self.setup_ai_client()
+    
+    def _get_default_model(self):
+        """Get default model based on provider"""
+        if self.provider == 'openai':
+            return 'gpt-4'
+        elif self.provider == 'groq':
+            return 'llama3-8b-8192'
+        else:
+            return 'gpt-4'
         
     def setup_ai_client(self):
         """Setup AI client based on provider"""
@@ -94,29 +104,30 @@ class JobAnalysisAgent:
                     'error': f'{self.provider} client not initialized'
                 }
         
+        print('Modellllllll: ', self.model)
         try:
             if self.provider == 'openai':
-                # Test with a simple completion
+                # Test with a simple completion using the configured model
                 response = self.ai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model=self.model,
                     messages=[{"role": "user", "content": "Hello"}],
                     max_tokens=5
                 )
                 return {
                     'success': True,
-                    'model': 'gpt-3.5-turbo',
+                    'model': self.model,
                     'response': response.choices[0].message.content.strip()
                 }
             elif self.provider == 'groq':
-                # Test with a simple completion
+                # Test with a simple completion using the configured model
                 response = self.ai_client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model=self.model,
                     messages=[{"role": "user", "content": "Hello"}],
                     max_tokens=5
                 )
                 return {
                     'success': True,
-                    'model': 'llama3-8b-8192',
+                    'model': self.model,
                     'response': response.choices[0].message.content.strip()
                 }
                 
@@ -200,7 +211,7 @@ class JobAnalysisAgent:
             # Call AI API based on provider
             if self.provider == 'openai':
                 response = self.ai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model=self.model,
                     messages=[
                         {
                             "role": "system",
@@ -218,7 +229,7 @@ class JobAnalysisAgent:
                 
             elif self.provider == 'groq':
                 response = self.ai_client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model=self.model,
                     messages=[
                         {
                             "role": "system",
@@ -596,6 +607,7 @@ def analyze_job_post(job_data: dict, user_profile: dict, ai_settings: dict = Non
         agent = JobAnalysisAgent(
             provider=ai_settings.get('provider'),
             api_key=ai_settings.get('api_key'),
+            model=ai_settings.get('model'),
             temperature=ai_settings.get('temperature', 0.7),
             max_tokens=ai_settings.get('max_tokens', 1500),
             enable_optimizations=ai_settings.get('enable_optimizations', True)

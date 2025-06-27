@@ -695,17 +695,40 @@ class OptionsController {
         const testBtn = document.getElementById('testAiBtn');
         const saveBtn = document.getElementById('saveAiBtn');
 
-        // Hide all API key groups
+        // Hide all API key groups and model selections
         openaiGroup.style.display = 'none';
         groqGroup.style.display = 'none';
 
-        // Show relevant API key group
+        // Hide all model selections
+        const openaiModelSelection = openaiGroup.querySelector('.model-selection');
+        const groqModelSelection = groqGroup.querySelector('.model-selection');
+
+        if (openaiModelSelection) {
+            openaiModelSelection.classList.remove('visible');
+        }
+        if (groqModelSelection) {
+            groqModelSelection.classList.remove('visible');
+        }
+
+        // Show relevant API key group and model selection
         if (provider === 'openai') {
             openaiGroup.style.display = 'block';
+            // Show model selection with animation
+            setTimeout(() => {
+                if (openaiModelSelection) {
+                    openaiModelSelection.classList.add('visible');
+                }
+            }, 100);
             // Load status for OpenAI
             this.loadApiKeyStatus('openai');
         } else if (provider === 'groq') {
             groqGroup.style.display = 'block';
+            // Show model selection with animation
+            setTimeout(() => {
+                if (groqModelSelection) {
+                    groqModelSelection.classList.add('visible');
+                }
+            }, 100);
             // Load status for Groq
             this.loadApiKeyStatus('groq');
         }
@@ -768,6 +791,10 @@ class OptionsController {
         // Update status indicator
         this.setApiKeyTestingStatus(provider, true);
 
+        // Get the selected model for the provider
+        const modelSelect = document.getElementById(`${provider}Model`);
+        const selectedModel = modelSelect ? modelSelect.value : null;
+
         try {
             const response = await fetch(Config.getApiUrl('test-ai'), {
                 method: 'POST',
@@ -776,7 +803,8 @@ class OptionsController {
                 },
                 body: JSON.stringify({
                     provider: provider,
-                    api_key: apiKey
+                    api_key: apiKey,
+                    model: selectedModel
                 })
             });
 
@@ -856,11 +884,22 @@ class OptionsController {
             return;
         }
 
+        // Get the selected model for the provider
+        const modelSelect = document.getElementById(`${provider}Model`);
+        const selectedModel = modelSelect ? modelSelect.value : null;
+
+        if (!selectedModel) {
+            this.showNotification(`Please select a model for ${provider}`, 'error');
+            return;
+        }
+
         console.log(`📦 Final API key to save for ${provider}: "${apiKey}"`);
+        console.log(`🤖 Selected model for ${provider}: "${selectedModel}"`);
 
         const aiSettings = {
             provider: provider,
             api_key: apiKey,
+            model: selectedModel,
             temperature: parseFloat(document.getElementById('temperature').value),
             max_tokens: parseInt(document.getElementById('maxTokens').value),
             enable_optimizations: document.getElementById('enableAiOptimizations').checked
@@ -869,6 +908,7 @@ class OptionsController {
         console.log(`📤 Sending AI settings to backend:`, {
             provider: aiSettings.provider,
             api_key: aiSettings.api_key ? '[PRESENT]' : '[EMPTY]',
+            model: aiSettings.model,
             temperature: aiSettings.temperature,
             max_tokens: aiSettings.max_tokens,
             enable_optimizations: aiSettings.enable_optimizations
@@ -994,6 +1034,15 @@ class OptionsController {
 
                         // Load and display stored API key status for the current provider
                         await this.loadApiKeyStatus(settings.provider);
+
+                        // Set the selected model for the provider
+                        if (settings.model) {
+                            const modelSelect = document.getElementById(`${settings.provider}Model`);
+                            if (modelSelect) {
+                                modelSelect.value = settings.model;
+                                console.log(`Setting ${settings.provider} model to: ${settings.model}`);
+                            }
+                        }
                     }
 
                     // Always load status for both providers to ensure proper initialization

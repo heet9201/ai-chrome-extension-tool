@@ -556,14 +556,15 @@ class Config {
 
     // Get the API base URL
     static getApiBaseUrl() {
-        return `${this.getBackendUrl()}/api`;
+        return this.getBackendUrl();
     }
 
     // Get full API endpoint URL
     static getApiUrl(endpoint) {
         // Remove leading slash if present
         const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-        return `${this.getApiBaseUrl()}/${cleanEndpoint}`;
+        // Add /api prefix to all endpoints
+        return `${this.getApiBaseUrl()}/api/${cleanEndpoint}`;
     }
 
     // Check if we're in development mode
